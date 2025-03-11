@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0) rotate(0); }
+  25% { transform: translateX(-5px) rotate(-2deg); }
+  75% { transform: translateX(5px) rotate(2deg); }
+}
+
+.animate-shake {
+  animation: shake 0.5s cubic-bezier(0.36, 0, 0.66, -0.56);
+}
+
+.poop-projectile {
+  position: fixed;
+  pointer-events: none;
+  z-index: 50;
+  font-size: 2rem;
+  transform-origin: center center;
+  will-change: transform;
+  left: 0;
+  top: 0;
+}
+
+.poop-counter {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #ff4444;
+  color: white;
+  border-radius: 9999px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: bold;
+}
