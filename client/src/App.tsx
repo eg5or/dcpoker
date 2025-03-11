@@ -10,7 +10,6 @@ function App() {
   const [isConnecting, setIsConnecting] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentVote, setCurrentVote] = useState<number | null>(null);
-  const [poopAnimation, setPoopAnimation] = useState<{ targetId: string, fromId: string } | null>(null);
   const [gameState, setGameState] = useState<GameState>({
     users: [],
     isRevealed: false,
@@ -18,12 +17,6 @@ function App() {
     usersChangedVoteAfterReveal: [],
     consistency: null
   });
-  const [poopProjectiles, setPoopProjectiles] = useState<Array<{
-    id: string;
-    targetId: string;
-    fromId: string;
-    trajectory: PoopTrajectory;
-  }>>([]);
   const projectileIdCounter = useRef(0);
 
   // Автоматическое подключение при наличии имени в localStorage
@@ -42,12 +35,12 @@ function App() {
   useEffect(() => {
     if (!socket) return;
 
-    socket.on('game:state', (state) => {
+    socket.on('game:state', (state: GameState) => {
       console.log('Получено обновление состояния:', state);
       setGameState(state);
       
       // Обновляем текущий выбор из состояния игры
-      const currentUser = state.users.find(u => u.id === socket.id);
+      const currentUser = state.users.find((u: { id: string }) => u.id === socket.id);
       if (currentUser) {
         setCurrentVote(currentUser.vote);
       }
