@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSocket } from './hooks/useSocket';
-import type { GameState, PoopTrajectory } from './types';
+import type { GameState } from './types';
 import { FIBONACCI_SEQUENCE } from './types';
 
 function App() {
@@ -17,7 +17,6 @@ function App() {
     usersChangedVoteAfterReveal: [],
     consistency: null
   });
-  const projectileIdCounter = useRef(0);
 
   // Автоматическое подключение при наличии имени в localStorage
   useEffect(() => {
@@ -67,9 +66,8 @@ function App() {
       setCurrentVote(null);
     });
 
-    socket.on('poop:thrown', (targetId: string, fromId: string, trajectory: PoopTrajectory) => {
-      const projectileId = `poop-${projectileIdCounter.current++}`;
-      
+    socket.on('poop:thrown', (targetId: string, fromId: string, trajectory: { startX: number; startY: number }) => {
+      console.log('Попытка кинуть какашку на:', targetId, 'от:', fromId, 'траектория:', trajectory);
       const targetElement = document.querySelector(`[data-user-id="${targetId}"]`);
       if (!targetElement) return;
 
@@ -88,7 +86,6 @@ function App() {
       const endY = targetRect.top + targetRect.height / 2;
 
       const distance = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
-      const angle = Math.atan2(endY - startY, endX - startX);
       const maxHeight = distance * 0.3;
       const duration = 1000; // 1 секунда
 

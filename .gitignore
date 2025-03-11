@@ -11,6 +11,7 @@ server/node_modules/
 # Продакшн билды
 /build
 /dist
+client/dist/
 /.next/
 /out/
 
