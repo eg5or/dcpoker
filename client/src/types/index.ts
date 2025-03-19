@@ -26,7 +26,7 @@ export type GameState = {
 
 export const FIBONACCI_SEQUENCE = [0.1, 0.5, 1, 2, 3, 5, 8, 13, 20, 40, 100];
 
-export type PoopTrajectory = {
+export type EmojiTrajectory = {
   startX: number;  // начальная позиция X в процентах от ширины экрана
   startY: number;  // начальная позиция Y в процентах от высоты экрана
   angle: number;   // угол броска в радианах

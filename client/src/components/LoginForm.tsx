@@ -9,7 +9,7 @@ interface LoginFormProps {
   onJoin: (e: FormEvent) => void;
 }
 
-export function LoginForm({ name, setName, error, socket, onJoin }: LoginFormProps) {
+export function LoginForm({ name, setName, error, onJoin }: LoginFormProps) {
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center">
       <form onSubmit={onJoin} className="bg-gray-800 p-8 rounded-lg shadow-xl">

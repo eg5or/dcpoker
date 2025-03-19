@@ -38,7 +38,7 @@ export function GameBoard({
   sequence
 }: GameBoardProps) {
   const [selectedEmoji, setSelectedEmoji] = useState<string>(AVAILABLE_EMOJIS[0]);
-  const [prevGameState, setPrevGameState] = useState<GameState>(gameState);
+  const [_, setPrevGameState] = useState<GameState>(gameState);
   const [confirmRevealDialogOpen, setConfirmRevealDialogOpen] = useState(false);
   const [confirmResetUsersDialogOpen, setConfirmResetUsersDialogOpen] = useState(false);
   const [easterEggState, setEasterEggState] = useState<'tilt' | 'fall' | 'shatter' | 'reset' | undefined>(undefined);
