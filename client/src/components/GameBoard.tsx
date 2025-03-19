@@ -3,6 +3,7 @@ import { Socket } from 'socket.io-client';
 import { AVAILABLE_EMOJIS, GameState } from '../types';
 import { AverageScore } from './AverageScore';
 import { EmojiSelector } from './EmojiSelector';
+import { ErrorMessage } from './ErrorMessage';
 import { GameControls } from './GameControls';
 import { UserCard } from './UserCard';
 import { VoteChangeAlert } from './VoteChangeAlert';
@@ -38,22 +39,19 @@ export function GameBoard({
   const [selectedEmoji, setSelectedEmoji] = useState<string>(AVAILABLE_EMOJIS[0]);
 
   return (
-    <div className="min-h-screen bg-gray-900 p-8">
-      {error && (
-        <div className="fixed top-4 right-4 bg-red-500 text-white p-3 rounded">
-          {error}
-        </div>
-      )}
+    <div className="min-h-screen bg-gray-900 p-4 sm:p-6 md:p-8">
+      <ErrorMessage message={error} />
+      
       <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <GameControls
             currentVote={currentVote}
             onReveal={onReveal}
             onReset={onReset}
             onResetUsers={onResetUsers}
           />
-          <div className="flex items-center bg-gray-800 p-2 rounded-lg">
-            <p className="text-white mr-3 text-sm">Выберите эмодзи:</p>
+          <div className="flex items-center bg-gray-800 p-2 rounded-lg w-full sm:w-auto">
+            <p className="text-white mr-3 text-sm whitespace-nowrap">Выберите эмодзи:</p>
             <EmojiSelector 
               selectedEmoji={selectedEmoji} 
               onSelectEmoji={setSelectedEmoji} 

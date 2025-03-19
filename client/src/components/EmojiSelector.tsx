@@ -34,25 +34,25 @@ export function EmojiSelector({ selectedEmoji, onSelectEmoji }: EmojiSelectorPro
   }, []);
 
   return (
-    <div className="relative" ref={selectorRef}>
+    <div className="relative flex-1 sm:flex-none" ref={selectorRef}>
       <button
-        className={`bg-gray-700 hover:bg-gray-600 p-3 rounded-lg flex items-center justify-center shadow transition-all ${
+        className={`w-full sm:w-auto bg-gray-700 hover:bg-gray-600 p-2 rounded-lg flex items-center justify-center shadow transition-all ${
           isOpen ? 'ring-2 ring-blue-400' : ''
         }`}
         onClick={toggleDropdown}
         aria-expanded={isOpen}
         aria-haspopup="true"
       >
-        <span className="text-2xl mr-2">{selectedEmoji}</span>
-        <span className="text-white">▼</span>
+        <span className="text-xl mr-2">{selectedEmoji}</span>
+        <span className="text-white text-sm">▼</span>
       </button>
 
       {isOpen && (
-        <div className="absolute top-14 right-0 w-16 bg-gray-800 rounded-lg p-2 shadow-xl z-10 flex flex-col gap-2">
+        <div className="absolute top-12 right-0 sm:top-14 bg-gray-800 rounded-lg p-2 shadow-xl z-10 flex flex-col gap-2 w-full max-w-[16rem] sm:max-w-none sm:w-16 max-h-[70vh] overflow-y-auto">
           {AVAILABLE_EMOJIS.map((emoji) => (
             <button
               key={emoji}
-              className={`p-2 text-2xl rounded hover:bg-gray-700 transition-colors ${
+              className={`p-2 text-xl rounded hover:bg-gray-700 transition-colors ${
                 selectedEmoji === emoji ? 'bg-gray-600 ring-1 ring-blue-400' : ''
               }`}
               onClick={() => handleSelect(emoji)}

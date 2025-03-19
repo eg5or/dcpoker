@@ -1,4 +1,3 @@
-
 interface GameControlsProps {
   currentVote: number | null;
   onReveal: () => void;
@@ -6,33 +5,35 @@ interface GameControlsProps {
   onResetUsers: () => void;
 }
 
-export function GameControls({ currentVote, onReveal, onReset, onResetUsers }: GameControlsProps) {
+export function GameControls({ onReveal, onReset, onResetUsers }: GameControlsProps) {
   return (
-    <div className="flex justify-between items-center mb-8">
-      <div className="flex items-center gap-4">
-        <h1 className="text-3xl text-white">Scrum Poker</h1>
-        {currentVote !== null && (
-          <div className="bg-blue-500 px-4 py-2 rounded">
-            <span className="text-white">Ваш выбор: {currentVote}</span>
-          </div>
-        )}
+    <div className="w-full">
+      <div className="flex flex-col xs:flex-row items-start xs:items-center justify-between mb-4 sm:mb-0">
+        <div className="relative">
+          <h1 className="text-2xl md:text-3xl text-white font-bold mb-3 xs:mb-0">
+            Scrum Poker
+            <span className="absolute text-xs md:text-sm text-gray-400 font-mono ml-1 -bottom-4 xs:ml-2 xs:bottom-auto xs:relative select-none">
+              by eg5or &amp; <span className="text-blue-400">Cursor AI</span>
+            </span>
+          </h1>
+        </div>
       </div>
-      <div className="flex gap-4">
+      <div className="flex flex-wrap gap-2 mt-3 sm:mt-0">
         <button
           onClick={onReveal}
-          className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+          className="text-sm md:text-base bg-green-500 text-white px-3 py-1.5 rounded hover:bg-green-600 transition-colors"
         >
           Показать карты
         </button>
         <button
           onClick={onReset}
-          className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+          className="text-sm md:text-base bg-red-500 text-white px-3 py-1.5 rounded hover:bg-red-600 transition-colors"
         >
           Сбросить
         </button>
         <button
           onClick={onResetUsers}
-          className="bg-red-700 text-white px-4 py-2 rounded hover:bg-red-800"
+          className="text-sm md:text-base bg-red-700 text-white px-3 py-1.5 rounded hover:bg-red-800 transition-colors"
         >
           Сбросить всех пользователей
         </button>

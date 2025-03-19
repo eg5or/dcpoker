@@ -34,31 +34,40 @@ export function UserCard({ user, isRevealed, currentUserId, onThrowEmoji, select
   // Общее количество атак
   const totalAttacks = emojiCounts.reduce((sum, [_, count]) => sum + count, 0);
 
+  // Определяем, должно ли быть показано значение оценки
+  const showActualVote = user.vote !== null && (isRevealed || isCurrentUser);
+  const showQuestionMark = user.vote !== null && !isRevealed && !isCurrentUser;
+  
+  // Отображаемое значение голоса
+  const voteDisplay = user.vote === 0.1 ? '☕️' : user.vote === 0.5 ? '½' : user.vote;
+
   return (
     <div
       data-user-id={user.id}
-      className={`bg-gray-800 p-6 rounded-lg shadow-lg relative ${
+      className={`bg-gray-800 p-4 sm:p-6 rounded-lg shadow-lg relative h-[140px] sm:h-[160px] flex flex-col select-none ${
         user.changedVoteAfterReveal ? 'ring-2 ring-yellow-500' : ''
       } ${
         isCurrentUser 
           ? 'bg-gradient-to-br from-blue-900 to-gray-800 ring-2 ring-blue-400 transform hover:scale-105 transition-all' 
-          : 'hover:bg-gray-700 cursor-pointer transition-colors'
+          : user.isOnline 
+            ? 'hover:bg-gray-700 cursor-pointer transition-colors' 
+            : 'opacity-40 hover:opacity-70 cursor-pointer transition-opacity'
       }`}
-      onClick={() => !isCurrentUser && onThrowEmoji(user.id, selectedEmoji)}
+      onClick={() => !isCurrentUser && user.isOnline && onThrowEmoji(user.id, selectedEmoji)}
     >
       {totalAttacks > 0 && (
-        <div className="emoji-counters">
+        <div className="emoji-counters select-none">
           {topEmojis.map(([emoji, count]) => (
             <span key={emoji} className="emoji-counter animate-subtle-pulse">
-              <span className="text-lg">{emoji}</span>
-              <span className="bg-gray-700 px-2 py-0.5 rounded-full text-sm">
+              <span className="text-base sm:text-lg">{emoji}</span>
+              <span className="bg-gray-700 px-1.5 sm:px-2 py-0.5 rounded-full text-xs sm:text-sm">
                 {count}
               </span>
             </span>
           ))}
           {hiddenEmojiCount > 0 && (
             <span className="emoji-counter">
-              <span className="bg-gray-700 px-2 py-0.5 rounded-full text-sm" title="Другие эмодзи">
+              <span className="bg-gray-700 px-1.5 sm:px-2 py-0.5 rounded-full text-xs sm:text-sm" title="Другие эмодзи">
                 +{hiddenEmojiCount}
               </span>
             </span>
@@ -66,30 +75,33 @@ export function UserCard({ user, isRevealed, currentUserId, onThrowEmoji, select
         </div>
       )}
       
-      <div className="flex items-center justify-between mb-4">
-        <h3 className={`text-xl ${isCurrentUser ? 'text-blue-300 font-bold' : 'text-white'}`}>
+      <div className="flex items-center justify-between mb-2 sm:mb-3">
+        <h3 className={`text-lg sm:text-xl truncate max-w-[80%] ${isCurrentUser ? 'text-blue-300 font-bold' : 'text-white'}`}>
           {isCurrentUser ? `${user.name} (Вы)` : user.name}
         </h3>
         <div>
-          <span className={`h-3 w-3 rounded-full inline-block ${
+          <span className={`h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full inline-block ${
             user.isOnline ? 'bg-green-500' : 'bg-gray-500'
           }`} />
         </div>
       </div>
       
-      {user.vote !== null && (
-        <div className="text-center">
-          <span className={`text-4xl font-bold ${
+      <div className="flex-grow flex items-center justify-center">
+        {showActualVote && (
+          <span className={`text-3xl sm:text-4xl font-bold ${
             isRevealed 
               ? user.changedVoteAfterReveal 
                 ? 'text-yellow-500'
                 : 'text-white'
-              : 'text-gray-500'
+              : 'text-blue-300'
           }`}>
-            {isRevealed ? (user.vote === 0.1 ? '☕️' : user.vote === 0.5 ? '½' : user.vote) : '?'}
+            {voteDisplay}
           </span>
-        </div>
-      )}
+        )}
+        {showQuestionMark && (
+          <span className="text-3xl sm:text-4xl font-bold text-gray-500">?</span>
+        )}
+      </div>
     </div>
   );
 } 
