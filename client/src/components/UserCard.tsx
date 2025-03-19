@@ -42,39 +42,41 @@ export function UserCard({ user, isRevealed, currentUserId, onThrowEmoji, select
       } ${
         isCurrentUser 
           ? 'bg-gradient-to-br from-blue-900 to-gray-800 ring-2 ring-blue-400 transform hover:scale-105 transition-all' 
-          : ''
+          : 'hover:bg-gray-700 cursor-pointer transition-colors'
       }`}
       onClick={() => !isCurrentUser && onThrowEmoji(user.id, selectedEmoji)}
     >
+      {totalAttacks > 0 && (
+        <div className="emoji-counters">
+          {topEmojis.map(([emoji, count]) => (
+            <span key={emoji} className="emoji-counter animate-subtle-pulse">
+              <span className="text-lg">{emoji}</span>
+              <span className="bg-gray-700 px-2 py-0.5 rounded-full text-sm">
+                {count}
+              </span>
+            </span>
+          ))}
+          {hiddenEmojiCount > 0 && (
+            <span className="emoji-counter">
+              <span className="bg-gray-700 px-2 py-0.5 rounded-full text-sm" title="Другие эмодзи">
+                +{hiddenEmojiCount}
+              </span>
+            </span>
+          )}
+        </div>
+      )}
+      
       <div className="flex items-center justify-between mb-4">
         <h3 className={`text-xl ${isCurrentUser ? 'text-blue-300 font-bold' : 'text-white'}`}>
           {isCurrentUser ? `${user.name} (Вы)` : user.name}
         </h3>
-        <div className="flex items-center gap-2">
-          {totalAttacks > 0 && (
-            <div className="emoji-counters flex items-center gap-1">
-              {topEmojis.map(([emoji, count]) => (
-                <span key={emoji} className="emoji-counter px-2 py-1 rounded-full text-white font-bold animate-subtle-pulse flex items-center gap-1">
-                  <span className="text-lg">{emoji}</span>
-                  <span className="bg-gray-700 px-2 py-0.5 rounded-full text-sm">
-                    {count}
-                  </span>
-                </span>
-              ))}
-              {hiddenEmojiCount > 0 && (
-                <span className="emoji-counter px-2 py-1 rounded-full text-white font-bold flex items-center">
-                  <span className="bg-gray-700 px-2 py-0.5 rounded-full text-sm" title="Другие эмодзи">
-                    +{hiddenEmojiCount}
-                  </span>
-                </span>
-              )}
-            </div>
-          )}
-          <span className={`h-3 w-3 rounded-full ${
+        <div>
+          <span className={`h-3 w-3 rounded-full inline-block ${
             user.isOnline ? 'bg-green-500' : 'bg-gray-500'
           }`} />
         </div>
       </div>
+      
       {user.vote !== null && (
         <div className="text-center">
           <span className={`text-4xl font-bold ${

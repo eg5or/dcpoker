@@ -52,8 +52,8 @@ export function GameBoard({
             onReset={onReset}
             onResetUsers={onResetUsers}
           />
-          <div className="flex items-center">
-            <p className="text-white mr-3">Выберите эмодзи для броска:</p>
+          <div className="flex items-center bg-gray-800 p-2 rounded-lg">
+            <p className="text-white mr-3 text-sm">Выберите эмодзи:</p>
             <EmojiSelector 
               selectedEmoji={selectedEmoji} 
               onSelectEmoji={setSelectedEmoji} 
@@ -65,6 +65,12 @@ export function GameBoard({
           changedUsers={gameState.usersChangedVoteAfterReveal}
           onRecalculate={onRecalculateAverage}
         />
+        
+        <div className="text-center mb-4">
+          <p className="text-gray-400 text-sm">
+            Нажмите на карточку участника, чтобы бросить в него выбранный эмодзи {selectedEmoji}
+          </p>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {[...gameState.users]

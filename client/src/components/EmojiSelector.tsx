@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AVAILABLE_EMOJIS } from '../types';
 
 interface EmojiSelectorProps {
@@ -8,6 +8,7 @@ interface EmojiSelectorProps {
 
 export function EmojiSelector({ selectedEmoji, onSelectEmoji }: EmojiSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const selectorRef = useRef<HTMLDivElement>(null);
 
   const toggleDropdown = () => {
     setIsOpen(!isOpen);
@@ -18,8 +19,22 @@ export function EmojiSelector({ selectedEmoji, onSelectEmoji }: EmojiSelectorPro
     setIsOpen(false);
   };
 
+  // Обработчик клика вне селектора
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (selectorRef.current && !selectorRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   return (
-    <div className="relative">
+    <div className="relative" ref={selectorRef}>
       <button
         className={`bg-gray-700 hover:bg-gray-600 p-3 rounded-lg flex items-center justify-center shadow transition-all ${
           isOpen ? 'ring-2 ring-blue-400' : ''
@@ -33,7 +48,7 @@ export function EmojiSelector({ selectedEmoji, onSelectEmoji }: EmojiSelectorPro
       </button>
 
       {isOpen && (
-        <div className="absolute bottom-14 left-0 w-48 bg-gray-800 rounded-lg p-2 shadow-xl z-10 grid grid-cols-5 gap-2">
+        <div className="absolute top-14 right-0 w-16 bg-gray-800 rounded-lg p-2 shadow-xl z-10 flex flex-col gap-2">
           {AVAILABLE_EMOJIS.map((emoji) => (
             <button
               key={emoji}

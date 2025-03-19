@@ -33,24 +33,37 @@
 }
 
 .emoji-counter {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  background: rgba(60, 60, 60, 0.7);
+  background: rgba(50, 50, 50, 0.85);
   border-radius: 9999px;
   padding: 0.25rem 0.5rem;
   font-size: 14px;
   transition: all 0.2s;
+  margin-left: -10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(80, 80, 80, 0.5);
+  z-index: 1;
+  color: white;
+  font-weight: bold;
+}
+
+.emoji-counter:first-child {
+  margin-left: 0;
 }
 
 .emoji-counter:hover {
-  transform: scale(1.1);
-  background: rgba(70, 70, 70, 0.9);
+  transform: scale(1.1) translateY(-2px);
+  z-index: 5;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
 }
 
 .emoji-counters {
+  position: absolute;
+  top: -10px;
+  right: -10px;
   display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  flex-wrap: wrap;
+  flex-direction: row-reverse;
 }
