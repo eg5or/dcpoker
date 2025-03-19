@@ -5,7 +5,10 @@ export type User = {
   vote: number | null;
   changedVoteAfterReveal?: boolean;
   joinedAt: number; // UTC timestamp в миллисекундах
-  poopAttacks: number; // количество какашек, брошенных в пользователя
+  lastSeen?: number; // UTC timestamp последнего посещения
+  emojiAttacks: {
+    [emoji: string]: number;
+  };
 };
 
 export type Consistency = {
@@ -37,7 +40,7 @@ export type ServerEvents = {
   'user:voted': (userId: string) => void;
   'votes:revealed': (state: GameState) => void;
   'force:logout': () => void;
-  'poop:thrown': (targetUserId: string, fromUserId: string, trajectory: PoopTrajectory) => void;
+  'emoji:thrown': (targetUserId: string, fromUserId: string, emoji: string, trajectory: EmojiTrajectory) => void;
 };
 
 export type ClientEvents = {
@@ -47,5 +50,5 @@ export type ClientEvents = {
   'game:reset': () => void;
   'recalculate:average': () => void;
   'users:reset': () => void;
-  'throw:poop': (targetUserId: string) => void;
+  'throw:emoji': (targetUserId: string, emoji: string) => void;
 }; 
