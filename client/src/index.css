@@ -79,7 +79,8 @@
 }
 
 .float-badges {
-  animation: float-badges 1.2s cubic-bezier(0.5, 0, 0.4, 1);
+  animation: float-badges 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 20;
 }
 
 /* Общие стили для всех карточек */
@@ -158,6 +159,7 @@
   flex-direction: row-reverse;
   user-select: none;
   z-index: 10;
+  pointer-events: none;
 }
 
 @media (min-width: 640px) {

@@ -83,6 +83,14 @@ export function GameBoard({
     setEasterEggState(state);
   };
 
+  // Обработчик для голосования после раскрытия карт
+  const handleVoteAfterReveal = () => {
+    // Если уже есть измененные голоса, не нужно показывать баннер снова
+    if (gameState.usersChangedVoteAfterReveal.length === 0) {
+      onRecalculateAverage();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 p-4 sm:p-6 md:p-8">
       <ErrorMessage message={error} />
@@ -133,6 +141,7 @@ export function GameBoard({
                 onThrowEmoji={(targetId) => onThrowEmoji(targetId, selectedEmoji)}
                 selectedEmoji={selectedEmoji}
                 easterEggState={easterEggState}
+                onVoteAfterReveal={handleVoteAfterReveal}
               />
             ))}
         </div>

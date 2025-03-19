@@ -18,6 +18,7 @@ interface UserCardProps {
   onThrowEmoji: (targetId: string, emoji: string) => void;
   selectedEmoji: string;
   easterEggState?: 'tilt' | 'fall' | 'shatter' | 'reset';
+  onVoteAfterReveal?: () => void;
 }
 
 export function UserCard({ 
@@ -26,7 +27,8 @@ export function UserCard({
   currentUserId, 
   onThrowEmoji, 
   selectedEmoji,
-  easterEggState
+  easterEggState,
+  onVoteAfterReveal
 }: UserCardProps) {
   const isCurrentUser = user.id === currentUserId;
   const [isFlipping, setIsFlipping] = useState(false);
@@ -357,20 +359,31 @@ export function UserCard({
     // Проверяем, что пользователь онлайн, иначе не переворачиваем его карточку
     if (!user.isOnline) return;
 
-    // Если карты только что вскрыли и у пользователя есть голос
-    if (!prevRevealState && isRevealed && user.vote !== null) {
+    // Проверяем, не проголосовал ли пользователь после раскрытия карт
+    if (isRevealed && prevVoteState === null && user.vote !== null) {
+      // Помечаем что голос был изменен после раскрытия
+      user.changedVoteAfterReveal = true;
       startFlipAnimation('reveal');
+      // Вызываем callback для показа баннера
+      onVoteAfterReveal?.();
     }
-    
+    // Если карты только что вскрыли
+    else if (!prevRevealState && isRevealed) {
+      // Переворачиваем только если есть голос
+      if (hasVoted) {
+        startFlipAnimation('reveal');
+      }
+    }
     // Если карты сбросили 
-    else if (prevRevealState && !isRevealed) {
+    else if (prevRevealState && !isRevealed && hasVoted) {
+      // При сбросе переворачиваем только карты, которые были с голосом
       startFlipAnimation('reset');
     }
 
     // Сохраняем текущее состояние для следующего сравнения
     setPrevRevealState(isRevealed);
     setPrevVoteState(user.vote);
-  }, [isRevealed, user.vote, prevRevealState, prevVoteState, isCurrentUser, isFlipping, user.isOnline]);
+  }, [isRevealed, user.vote, prevRevealState, prevVoteState, isCurrentUser, isFlipping, user.isOnline, hasVoted, onVoteAfterReveal]);
 
   const startFlipAnimation = (type: 'reveal' | 'reset') => {
     if (!cardInnerRef.current) return;
@@ -378,13 +391,16 @@ export function UserCard({
     // Отмечаем, что анимация началась
     setIsFlipping(true);
     setIsAnimatingManually(true);
-    setBadgesFloating(true);
+    
+    // Запускаем анимацию бейджиков только если они есть
+    if (totalAttacks > 0) {
+      setBadgesFloating(true);
+      // Увеличиваем время анимации бейджиков, чтобы они дольше оставались наверху
+      setTimeout(() => setBadgesFloating(false), 1500);
+    }
     
     // Сбрасываем значения
     animationStartTimeRef.current = null;
-    
-    // Запускаем анимацию плавающих бейджиков
-    setTimeout(() => setBadgesFloating(false), 1000);
     
     const flipCard = (timestamp: number) => {
       if (!cardInnerRef.current) return;
@@ -476,7 +492,7 @@ export function UserCard({
     // Если карточка в обычном состоянии, передаем управление React
     if (!isAnimatingManually && !currentEasterEggState) {
       return {
-        transform: isRevealed ? 'rotateY(180deg)' : 'rotateY(0deg)',
+        transform: isRevealed && hasVoted ? 'rotateY(180deg)' : 'rotateY(0deg)',
         transformOrigin: 'center center'
       };
     }
@@ -557,7 +573,7 @@ export function UserCard({
           </div>
           
           <div className="flex-grow flex items-center justify-center">
-            {hasVoted && (
+            {hasVoted && !isRevealed && (
               <span className="text-3xl sm:text-4xl font-bold text-gray-500">?</span>
             )}
           </div>
@@ -576,8 +592,17 @@ export function UserCard({
           }`}
         >
           <div className="flex items-center justify-between mb-2 sm:mb-3">
-            <h3 className={`text-lg sm:text-xl truncate max-w-[80%] ${isCurrentUser ? 'text-blue-300 font-bold' : 'text-white'}`}>
+            <h3 className={`text-lg sm:text-xl truncate max-w-[80%] ${
+              user.changedVoteAfterReveal 
+                ? 'text-yellow-300 font-bold' 
+                : isCurrentUser 
+                  ? 'text-blue-300 font-bold' 
+                  : 'text-white'
+            }`}>
               {isCurrentUser ? `${user.name} (Вы)` : user.name}
+              {user.changedVoteAfterReveal && (
+                <span className="ml-2 text-xs text-yellow-500">(изменено)</span>
+              )}
             </h3>
             <div>
               <span className={`h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full inline-block ${
