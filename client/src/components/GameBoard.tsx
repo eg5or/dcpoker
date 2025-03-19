@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Socket } from 'socket.io-client';
 import { AVAILABLE_EMOJIS, GameState } from '../types';
 import { AverageScore } from './AverageScore';
+import { ConfirmDialog } from './ConfirmDialog';
 import { EmojiSelector } from './EmojiSelector';
 import { ErrorMessage } from './ErrorMessage';
 import { GameControls } from './GameControls';
@@ -38,6 +39,9 @@ export function GameBoard({
 }: GameBoardProps) {
   const [selectedEmoji, setSelectedEmoji] = useState<string>(AVAILABLE_EMOJIS[0]);
   const [prevGameState, setPrevGameState] = useState<GameState>(gameState);
+  const [confirmRevealDialogOpen, setConfirmRevealDialogOpen] = useState(false);
+  const [confirmResetUsersDialogOpen, setConfirmResetUsersDialogOpen] = useState(false);
+  const [easterEggState, setEasterEggState] = useState<'tilt' | 'fall' | 'shatter' | 'reset' | undefined>(undefined);
 
   // Сохраняем предыдущее состояние игры для анимации
   useEffect(() => {
@@ -46,7 +50,37 @@ export function GameBoard({
 
   // Обработчик для сброса с анимацией
   const handleReset = () => {
+    // Сбрасываем пасхалку при сбросе голосов
+    setEasterEggState('reset');
     onReset();
+  };
+
+  // Проверка, все ли онлайн пользователи проголосовали
+  const checkAllOnlineUsersVoted = () => {
+    const onlineUsers = gameState.users.filter(user => user.isOnline);
+    const onlineUsersWithVotes = onlineUsers.filter(user => user.vote !== null);
+    return onlineUsersWithVotes.length === onlineUsers.length;
+  };
+
+  // Обработчик для кнопки "Показать карты"
+  const handleRevealRequest = () => {
+    if (checkAllOnlineUsersVoted()) {
+      // Если все проголосовали, сразу показываем карты
+      onReveal();
+    } else {
+      // Иначе показываем диалог подтверждения
+      setConfirmRevealDialogOpen(true);
+    }
+  };
+
+  // Обработчик для кнопки "Сбросить всех пользователей"
+  const handleResetUsersRequest = () => {
+    setConfirmResetUsersDialogOpen(true);
+  };
+
+  // Обработчик для пасхалки с кофе
+  const handleCoffeeEasterEgg = (state: 'tilt' | 'fall' | 'shatter' | 'reset') => {
+    setEasterEggState(state);
   };
 
   return (
@@ -56,9 +90,9 @@ export function GameBoard({
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <GameControls
-            onReveal={onReveal}
+            onReveal={handleRevealRequest}
             onReset={handleReset}
-            onResetUsers={onResetUsers}
+            onResetUsers={handleResetUsersRequest}
           />
           <div className="flex items-center bg-gray-800 p-2 rounded-lg w-full sm:w-auto">
             <p className="text-white mr-3 text-sm whitespace-nowrap">Выберите эмодзи:</p>
@@ -98,6 +132,7 @@ export function GameBoard({
                 currentUserId={socket?.id}
                 onThrowEmoji={(targetId) => onThrowEmoji(targetId, selectedEmoji)}
                 selectedEmoji={selectedEmoji}
+                easterEggState={easterEggState}
               />
             ))}
         </div>
@@ -113,6 +148,31 @@ export function GameBoard({
           currentVote={currentVote}
           onVote={onVote}
           sequence={sequence}
+          onCoffeeEasterEgg={handleCoffeeEasterEgg}
+        />
+
+        {/* Диалоговое окно подтверждения вскрытия карт */}
+        <ConfirmDialog
+          isOpen={confirmRevealDialogOpen}
+          message="Не все онлайн пользователи сделали выбор, вы уверены, что хотите вскрыть карты?"
+          onConfirm={() => {
+            setConfirmRevealDialogOpen(false);
+            onReveal();
+          }}
+          onCancel={() => setConfirmRevealDialogOpen(false)}
+        />
+        
+        {/* Диалоговое окно подтверждения сброса всех пользователей */}
+        <ConfirmDialog
+          isOpen={confirmResetUsersDialogOpen}
+          message="Вы уверены, что хотите сбросить всех пользователей? Это действие выведет всех участников из покера, и им потребуется заново подключиться для продолжения игры."
+          confirmLabel="Сбросить"
+          cancelLabel="Отмена"
+          onConfirm={() => {
+            setConfirmResetUsersDialogOpen(false);
+            onResetUsers();
+          }}
+          onCancel={() => setConfirmResetUsersDialogOpen(false)}
         />
       </div>
     </div>

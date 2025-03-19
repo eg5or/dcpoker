@@ -12,9 +12,29 @@
   animation: shake 0.5s cubic-bezier(0.36, 0, 0.66, -0.56);
 }
 
+/* Стили для осколков */
+.shard {
+  position: absolute;
+  background-color: rgba(30, 41, 59, 0.7); /* Цвет карточки */
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  width: 20px;
+  height: 20px;
+  opacity: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+
+@keyframes shard-animation {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+  5% { opacity: 0.9; }
+  100% { transform: translate(var(--tx), var(--ty)) rotate(var(--tr)); opacity: 0; }
+}
+
 /* Базовые стили для карточек с 3D-эффектом */
 .card-container {
   perspective: 1000px;
+  transform-style: preserve-3d;
 }
 
 .card-inner {

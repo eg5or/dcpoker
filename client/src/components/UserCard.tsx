@@ -17,18 +17,31 @@ interface UserCardProps {
   currentUserId: string | undefined;
   onThrowEmoji: (targetId: string, emoji: string) => void;
   selectedEmoji: string;
+  easterEggState?: 'tilt' | 'fall' | 'shatter' | 'reset';
 }
 
-export function UserCard({ user, isRevealed, currentUserId, onThrowEmoji, selectedEmoji }: UserCardProps) {
+export function UserCard({ 
+  user, 
+  isRevealed, 
+  currentUserId, 
+  onThrowEmoji, 
+  selectedEmoji,
+  easterEggState
+}: UserCardProps) {
   const isCurrentUser = user.id === currentUserId;
   const [isFlipping, setIsFlipping] = useState(false);
   const [prevRevealState, setPrevRevealState] = useState<boolean>(isRevealed);
   const [prevVoteState, setPrevVoteState] = useState<number | null>(user.vote);
   const [badgesFloating, setBadgesFloating] = useState(false);
+  const [clickCount, setClickCount] = useState(0);
   const cardInnerRef = useRef<HTMLDivElement>(null);
+  const cardContainerRef = useRef<HTMLDivElement>(null);
   const animationFrameRef = useRef<number | null>(null);
   const animationStartTimeRef = useRef<number | null>(null);
+  const easterEggAnimationFrameRef = useRef<number | null>(null);
   const [isAnimatingManually, setIsAnimatingManually] = useState(false);
+  const [currentEasterEggState, setCurrentEasterEggState] = useState<string | undefined>(undefined);
+  const shardsRef = useRef<HTMLDivElement[]>([]);
 
   // Получаем и сортируем эмодзи по количеству
   const emojiCounts = Object.entries(user.emojiAttacks || {})
@@ -50,12 +63,289 @@ export function UserCard({ user, isRevealed, currentUserId, onThrowEmoji, select
   // Отображаемое значение голоса - для перевернутой карточки
   const voteDisplay = user.vote === 0.1 ? '☕️' : user.vote === 0.5 ? '½' : user.vote;
 
+  // Эффект разлетающихся осколков
+  const createShards = (cardRect: DOMRect) => {
+    // Очищаем старые осколки
+    shardsRef.current.forEach(shard => {
+      if (shard.parentNode) {
+        shard.parentNode.removeChild(shard);
+      }
+    });
+    shardsRef.current = [];
+    
+    const numShards = 20;
+    const container = cardContainerRef.current;
+    if (!container) return;
+    
+    for (let i = 0; i < numShards; i++) {
+      const shard = document.createElement('div');
+      shard.className = 'shard';
+      
+      // Позиционируем осколки в месте карточки
+      shard.style.left = `${cardRect.left + cardRect.width / 2}px`;
+      shard.style.top = `${cardRect.top + cardRect.height / 2}px`;
+      
+      // Случайный размер для каждого осколка
+      const size = 10 + Math.random() * 30;
+      shard.style.width = `${size}px`;
+      shard.style.height = `${size}px`;
+      
+      // Добавляем градиент и тень для более реалистичного вида
+      const hue = 200 + Math.random() * 20; // Синеватый оттенок
+      shard.style.backgroundColor = `hsl(${hue}, 30%, 20%)`;
+      shard.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
+      
+      document.body.appendChild(shard);
+      shardsRef.current.push(shard);
+      
+      // Анимируем каждый осколок
+      const angle = (i / numShards) * Math.PI * 2 + Math.random() * 0.5;
+      const velocity = 5 + Math.random() * 10;
+      const rotationSpeed = (Math.random() - 0.5) * 720;
+      
+      let startTime: number | null = null;
+      const duration = 1000 + Math.random() * 500;
+      
+      const animateShard = (timestamp: number) => {
+        if (!startTime) startTime = timestamp;
+        const elapsed = timestamp - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Параболическая траектория
+        const x = Math.cos(angle) * velocity * progress * 100;
+        const y = Math.sin(angle) * velocity * progress * 100 + 
+                  progress * progress * 500; // Ускорение падения
+        
+        const rotation = rotationSpeed * progress;
+        const scale = 1 - progress * 0.5;
+        
+        shard.style.transform = `
+          translate(${x}px, ${y}px) 
+          rotate(${rotation}deg) 
+          scale(${scale})
+        `;
+        
+        // Плавное исчезновение
+        shard.style.opacity = `${1 - progress}`;
+        
+        if (progress < 1) {
+          requestAnimationFrame(animateShard);
+        } else if (shard.parentNode) {
+          shard.parentNode.removeChild(shard);
+        }
+      };
+      
+      requestAnimationFrame(animateShard);
+    }
+  };
+
+  // Модифицируем анимацию наклона
+  const startTiltAnimation = () => {
+    if (!cardContainerRef.current) return;
+    
+    // Отменяем предыдущую анимацию
+    if (easterEggAnimationFrameRef.current) {
+      cancelAnimationFrame(easterEggAnimationFrameRef.current);
+    }
+    
+    const container = cardContainerRef.current;
+    let startTime: number | null = null;
+    const duration = 1000;
+    
+    // Рассчитываем угол наклона в зависимости от количества кликов
+    // С 4 по 8 клик увеличиваем наклон
+    const baseAngle = -10; // Начальный угол наклона
+    const clicksAfterThreshold = Math.min(Math.max(clickCount - 3, 0), 5); // От 0 до 5
+    const maxTiltAngle = -50; // Максимальный угол наклона
+    const targetAngle = baseAngle - (clicksAfterThreshold * ((Math.abs(maxTiltAngle) - Math.abs(baseAngle)) / 5));
+    
+    const animateTilt = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Функция плавности
+      const easeOutElastic = (t: number) => {
+        const p = 0.3;
+        return Math.pow(2, -10 * t) * Math.sin((t - p / 4) * (2 * Math.PI) / p) + 1;
+      }
+      const easedProgress = easeOutElastic(progress);
+      
+      // Наклон с эффектом пружины
+      const angle = targetAngle * easedProgress;
+      const translateY = 5 * easedProgress; // Небольшое смещение вниз
+      
+      container.style.transform = `rotateZ(${angle}deg) translateY(${translateY}px)`;
+      
+      if (progress < 1) {
+        easterEggAnimationFrameRef.current = requestAnimationFrame(animateTilt);
+      }
+    };
+    
+    easterEggAnimationFrameRef.current = requestAnimationFrame(animateTilt);
+  };
+  
+  // Модифицируем анимацию падения
+  const startFallingAnimation = () => {
+    if (!cardContainerRef.current) return;
+    
+    if (easterEggAnimationFrameRef.current) {
+      cancelAnimationFrame(easterEggAnimationFrameRef.current);
+    }
+    
+    const container = cardContainerRef.current;
+    const windowHeight = window.innerHeight;
+    const cardRect = container.getBoundingClientRect();
+    const fallDistance = windowHeight - cardRect.top + 100;
+    
+    let startTime: number | null = null;
+    const duration = 1500;
+    
+    // Запоминаем начальный наклон (последний угол из анимации наклона)
+    const initialAngle = -50;
+    const initialTranslateY = 5;
+    
+    const animateFall = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Функция ускорения падения
+      const fallEase = (t: number) => {
+        return t < 0.5 
+          ? 2 * t * t 
+          : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      };
+      
+      // Добавляем небольшое колебание при падении
+      const wobble = Math.sin(progress * Math.PI * 4) * (1 - progress) * 10;
+      
+      // Рассчитываем текущие значения трансформации
+      const fallProgress = fallEase(progress);
+      const translateY = initialTranslateY + fallDistance * fallProgress;
+      const rotateZ = initialAngle - 40 * fallProgress + wobble;
+      
+      // Добавляем небольшое смещение влево при падении
+      const translateX = -50 * fallProgress;
+      
+      container.style.transform = `
+        translateY(${translateY}px) 
+        translateX(${translateX}px) 
+        rotateZ(${rotateZ}deg)
+      `;
+      
+      // Уменьшаем прозрачность ближе к концу падения
+      if (progress > 0.8) {
+        const opacity = 1 - ((progress - 0.8) * 5);
+        container.style.opacity = opacity.toString();
+      }
+      
+      if (progress < 1) {
+        easterEggAnimationFrameRef.current = requestAnimationFrame(animateFall);
+      } else {
+        // После завершения падения запускаем анимацию разлетания
+        startShatterAnimation();
+      }
+    };
+    
+    easterEggAnimationFrameRef.current = requestAnimationFrame(animateFall);
+  };
+  
+  // Модифицируем анимацию разлетания
+  const startShatterAnimation = () => {
+    if (!cardContainerRef.current) return;
+    
+    if (easterEggAnimationFrameRef.current) {
+      cancelAnimationFrame(easterEggAnimationFrameRef.current);
+    }
+    
+    const container = cardContainerRef.current;
+    
+    // Создаем осколки сразу в конечной позиции карточки
+    const cardRect = container.getBoundingClientRect();
+    createShards(cardRect);
+    
+    // Скрываем оригинальную карточку
+    container.style.visibility = 'hidden';
+  };
+
+  // Сброс всех анимаций пасхалки
+  const resetEasterEggAnimation = () => {
+    if (!cardContainerRef.current) return;
+    
+    // Отменяем анимации
+    if (easterEggAnimationFrameRef.current) {
+      cancelAnimationFrame(easterEggAnimationFrameRef.current);
+      easterEggAnimationFrameRef.current = null;
+    }
+    
+    // Очищаем осколки
+    shardsRef.current.forEach(shard => {
+      if (shard.parentNode) {
+        shard.parentNode.removeChild(shard);
+      }
+    });
+    shardsRef.current = [];
+    
+    // Сбрасываем стили
+    const container = cardContainerRef.current;
+    container.style.transform = '';
+    container.style.opacity = '';
+    container.style.filter = '';
+    container.style.visibility = '';
+    
+    setCurrentEasterEggState(undefined);
+  };
+
+  // Обработка пасхалки
+  useEffect(() => {
+    if (isCurrentUser && user.vote === 0.1 && easterEggState) {
+      // Если пасхалка активирована для текущего пользователя и он выбрал кофе
+      setCurrentEasterEggState(easterEggState);
+      
+      // Запускаем соответствующую анимацию
+      if (easterEggState === 'tilt') {
+        startTiltAnimation();
+      } else if (easterEggState === 'fall') {
+        startFallingAnimation();
+        
+        // Автоматический переход к разбитию через время
+        const timeout = setTimeout(() => {
+          setCurrentEasterEggState('shatter');
+        }, 1500);
+        return () => clearTimeout(timeout);
+      } else if (easterEggState === 'shatter') {
+        startShatterAnimation();
+        
+        // Сброс состояния через время
+        const timeout = setTimeout(() => {
+          resetEasterEggAnimation();
+        }, 3000);
+        return () => clearTimeout(timeout);
+      }
+    } else if (easterEggState === 'reset') {
+      // Сбрасываем пасхалку
+      resetEasterEggAnimation();
+    }
+  }, [easterEggState, isCurrentUser, user.vote]);
+
   // Очистка анимаций при размонтировании компонента
   useEffect(() => {
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
+      
+      if (easterEggAnimationFrameRef.current) {
+        cancelAnimationFrame(easterEggAnimationFrameRef.current);
+      }
+      
+      // Очищаем осколки
+      shardsRef.current.forEach(shard => {
+        if (shard.parentNode) {
+          shard.parentNode.removeChild(shard);
+        }
+      });
     };
   }, []);
 
@@ -63,6 +353,9 @@ export function UserCard({ user, isRevealed, currentUserId, onThrowEmoji, select
   useEffect(() => {
     // Если анимация уже идет, не запускаем новую
     if (isFlipping) return;
+    
+    // Проверяем, что пользователь онлайн, иначе не переворачиваем его карточку
+    if (!user.isOnline) return;
 
     // Если карты только что вскрыли и у пользователя есть голос
     if (!prevRevealState && isRevealed && user.vote !== null) {
@@ -77,7 +370,7 @@ export function UserCard({ user, isRevealed, currentUserId, onThrowEmoji, select
     // Сохраняем текущее состояние для следующего сравнения
     setPrevRevealState(isRevealed);
     setPrevVoteState(user.vote);
-  }, [isRevealed, user.vote, prevRevealState, prevVoteState, isCurrentUser, isFlipping]);
+  }, [isRevealed, user.vote, prevRevealState, prevVoteState, isCurrentUser, isFlipping, user.isOnline]);
 
   const startFlipAnimation = (type: 'reveal' | 'reset') => {
     if (!cardInnerRef.current) return;
@@ -178,11 +471,42 @@ export function UserCard({ user, isRevealed, currentUserId, onThrowEmoji, select
   // Определение стилей для бейджиков с эмодзи
   const badgesClass = badgesFloating ? "emoji-counters float-badges" : "emoji-counters";
 
+  // Расчет стилей для внутреннего контейнера карточки
+  const getCardStyles = () => {
+    // Если карточка в обычном состоянии, передаем управление React
+    if (!isAnimatingManually && !currentEasterEggState) {
+      return {
+        transform: isRevealed ? 'rotateY(180deg)' : 'rotateY(0deg)',
+        transformOrigin: 'center center'
+      };
+    }
+    
+    // В остальных случаях управляет JavaScript-анимация
+    return { 
+      transformOrigin: 'center center'
+    };
+  };
+
   return (
     <div 
+      ref={cardContainerRef}
       data-user-id={user.id}
       className="card-container relative h-[140px] sm:h-[160px] select-none"
-      onClick={() => !isCurrentUser && user.isOnline && !isFlipping && onThrowEmoji(user.id, selectedEmoji)}
+      onClick={() => {
+        if (!isCurrentUser && user.isOnline && !isFlipping) {
+          onThrowEmoji(user.id, selectedEmoji);
+        } else if (isCurrentUser && user.vote === 0.1) {
+          setClickCount(prev => {
+            const newCount = prev + 1;
+            if (newCount >= 4 && newCount < 9) {
+              startTiltAnimation();
+            } else if (newCount === 9) {
+              startFallingAnimation();
+            }
+            return newCount;
+          });
+        }
+      }}
     >
       {/* Бейджики с эмодзи (всегда поверх карточки) */}
       {totalAttacks > 0 && (
@@ -209,7 +533,7 @@ export function UserCard({ user, isRevealed, currentUserId, onThrowEmoji, select
       <div 
         ref={cardInnerRef}
         className="card-inner w-full h-full" 
-        style={!isAnimatingManually ? { transform: isRevealed ? 'rotateY(180deg)' : 'rotateY(0deg)' } : {}}
+        style={getCardStyles()}
       >
         {/* Передняя сторона карточки (нераскрытая) */}
         <div 

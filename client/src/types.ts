@@ -23,7 +23,7 @@ export interface GameState {
   consistency: Consistency | null;
 }
 
-export const FIBONACCI_SEQUENCE = [0.1, 0.5, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
+export const FIBONACCI_SEQUENCE = [0.1, 0.5, 1, 2, 3, 5, 8, 13, 20, 40, 100];
 
 export const AVAILABLE_EMOJIS = [
   '💩', // какашка
