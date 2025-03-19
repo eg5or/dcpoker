@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Socket } from 'socket.io-client';
-import { GameState } from '../types';
+import { AVAILABLE_EMOJIS, GameState } from '../types';
 import { AverageScore } from './AverageScore';
+import { EmojiSelector } from './EmojiSelector';
 import { GameControls } from './GameControls';
 import { UserCard } from './UserCard';
 import { VoteChangeAlert } from './VoteChangeAlert';
@@ -16,7 +18,7 @@ interface GameBoardProps {
   onReset: () => void;
   onResetUsers: () => void;
   onRecalculateAverage: () => void;
-  onThrowPoop: (targetId: string) => void;
+  onThrowEmoji: (targetId: string, emoji: string) => void;
   sequence: number[];
 }
 
@@ -30,9 +32,11 @@ export function GameBoard({
   onReset,
   onResetUsers,
   onRecalculateAverage,
-  onThrowPoop,
+  onThrowEmoji,
   sequence
 }: GameBoardProps) {
+  const [selectedEmoji, setSelectedEmoji] = useState<string>(AVAILABLE_EMOJIS[0]);
+
   return (
     <div className="min-h-screen bg-gray-900 p-8">
       {error && (
@@ -41,12 +45,21 @@ export function GameBoard({
         </div>
       )}
       <div className="max-w-6xl mx-auto">
-        <GameControls
-          currentVote={currentVote}
-          onReveal={onReveal}
-          onReset={onReset}
-          onResetUsers={onResetUsers}
-        />
+        <div className="flex justify-between items-center mb-6">
+          <GameControls
+            currentVote={currentVote}
+            onReveal={onReveal}
+            onReset={onReset}
+            onResetUsers={onResetUsers}
+          />
+          <div className="flex items-center">
+            <p className="text-white mr-3">Выберите эмодзи для броска:</p>
+            <EmojiSelector 
+              selectedEmoji={selectedEmoji} 
+              onSelectEmoji={setSelectedEmoji} 
+            />
+          </div>
+        </div>
 
         <VoteChangeAlert
           changedUsers={gameState.usersChangedVoteAfterReveal}
@@ -69,7 +82,8 @@ export function GameBoard({
                 user={user}
                 isRevealed={gameState.isRevealed}
                 currentUserId={socket?.id}
-                onThrowPoop={onThrowPoop}
+                onThrowEmoji={(targetId) => onThrowEmoji(targetId, selectedEmoji)}
+                selectedEmoji={selectedEmoji}
               />
             ))}
         </div>

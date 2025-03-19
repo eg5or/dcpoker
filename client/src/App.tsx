@@ -68,14 +68,14 @@ function App() {
       setCurrentVote(null);
     });
 
-    socket.on('poop:thrown', (targetId: string, fromId: string, trajectory: { startX: number; startY: number }) => {
-      console.log('Попытка кинуть какашку на:', targetId, 'от:', fromId, 'траектория:', trajectory);
+    socket.on('emoji:thrown', (targetId: string, fromId: string, emoji: string, trajectory: { startX: number; startY: number }) => {
+      console.log('Бросок эмодзи:', emoji, 'на:', targetId, 'от:', fromId, 'траектория:', trajectory);
       const targetElement = document.querySelector(`[data-user-id="${targetId}"]`);
       if (!targetElement) return;
 
       const projectile = document.createElement('div');
-      projectile.className = 'poop-projectile';
-      projectile.textContent = '💩';
+      projectile.className = 'emoji-projectile';
+      projectile.textContent = emoji;
       document.body.appendChild(projectile);
 
       const windowWidth = window.innerWidth;
@@ -142,7 +142,7 @@ function App() {
       socket.off('connect_error');
       socket.off('disconnect');
       socket.off('force:logout');
-      socket.off('poop:thrown');
+      socket.off('emoji:thrown');
     };
   }, [socket]);
 
@@ -186,9 +186,9 @@ function App() {
     socket.emit('recalculate:average');
   };
 
-  const handleThrowPoop = (targetId: string) => {
+  const handleThrowEmoji = (targetId: string, emoji: string) => {
     if (!socket) return;
-    socket.emit('throw:poop', targetId);
+    socket.emit('throw:emoji', targetId, emoji);
   };
 
   if (isConnecting) {
@@ -222,7 +222,7 @@ function App() {
       onReset={handleReset}
       onResetUsers={() => socket?.emit('users:reset')}
       onRecalculateAverage={handleRecalculateAverage}
-      onThrowPoop={handleThrowPoop}
+      onThrowEmoji={handleThrowEmoji}
       sequence={FIBONACCI_SEQUENCE}
     />
   );

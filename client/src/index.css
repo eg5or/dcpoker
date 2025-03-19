@@ -12,7 +12,7 @@
   animation: shake 0.5s cubic-bezier(0.36, 0, 0.66, -0.56);
 }
 
-.poop-projectile {
+.emoji-projectile {
   position: fixed;
   pointer-events: none;
   z-index: 50;
@@ -23,14 +23,34 @@
   top: 0;
 }
 
-.poop-counter {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  background: #ff4444;
-  color: white;
+@keyframes subtle-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.animate-subtle-pulse {
+  animation: subtle-pulse 2s infinite ease-in-out;
+}
+
+.emoji-counter {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: rgba(60, 60, 60, 0.7);
   border-radius: 9999px;
-  padding: 2px 8px;
-  font-size: 12px;
-  font-weight: bold;
+  padding: 0.25rem 0.5rem;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.emoji-counter:hover {
+  transform: scale(1.1);
+  background: rgba(70, 70, 70, 0.9);
+}
+
+.emoji-counters {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
 }

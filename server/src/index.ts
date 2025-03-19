@@ -20,7 +20,9 @@ type User = {
   vote: number | null;
   changedVoteAfterReveal?: boolean;
   joinedAt: number;
-  poopAttacks: number;
+  emojiAttacks: {
+    [emoji: string]: number;
+  };
 };
 
 type GameState = {
@@ -57,7 +59,7 @@ io.on('connection', (socket) => {
       existingUser.vote = null;
       existingUser.changedVoteAfterReveal = false;
       existingUser.joinedAt = Date.now();
-      existingUser.poopAttacks = 0;
+      existingUser.emojiAttacks = {};
     } else {
       const user: User = {
         id: socket.id,
@@ -66,7 +68,7 @@ io.on('connection', (socket) => {
         vote: null,
         changedVoteAfterReveal: false,
         joinedAt: Date.now(),
-        poopAttacks: 0
+        emojiAttacks: {}
       };
       gameState.users.push(user);
     }
@@ -99,12 +101,18 @@ io.on('connection', (socket) => {
     io.emit('game:state', gameState);
   });
 
-  socket.on('throw:poop', (targetUserId: string) => {
+  socket.on('throw:emoji', (targetUserId: string, emoji: string) => {
     const targetUser = gameState.users.find(u => u.id === targetUserId);
     const fromUser = gameState.users.find(u => u.id === socket.id);
     
     if (targetUser && fromUser && targetUser.id !== fromUser.id) {
-      targetUser.poopAttacks = (targetUser.poopAttacks || 0) + 1;
+      // Инициализируем объект, если он не существует
+      if (!targetUser.emojiAttacks) {
+        targetUser.emojiAttacks = {};
+      }
+      
+      // Увеличиваем счетчик для данного эмодзи
+      targetUser.emojiAttacks[emoji] = (targetUser.emojiAttacks[emoji] || 0) + 1;
       
       // Генерируем случайную траекторию
       const side = Math.floor(Math.random() * 4); // 0: top, 1: right, 2: bottom, 3: left
@@ -136,7 +144,7 @@ io.on('connection', (socket) => {
         speed: Math.random() * 20 + 40 // скорость от 40 до 60
       };
 
-      io.emit('poop:thrown', targetUser.id, fromUser.id, trajectory);
+      io.emit('emoji:thrown', targetUser.id, fromUser.id, emoji, trajectory);
       io.emit('game:state', gameState);
     }
   });
@@ -145,7 +153,7 @@ io.on('connection', (socket) => {
     gameState.users.forEach(user => {
       user.vote = null;
       user.changedVoteAfterReveal = false;
-      user.poopAttacks = 0;
+      user.emojiAttacks = {};
     });
     gameState.isRevealed = false;
     gameState.averageVote = null;
