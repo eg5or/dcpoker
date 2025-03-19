@@ -12,6 +12,53 @@
   animation: shake 0.5s cubic-bezier(0.36, 0, 0.66, -0.56);
 }
 
+/* Базовые стили для карточек с 3D-эффектом */
+.card-container {
+  perspective: 1000px;
+}
+
+.card-inner {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0s;
+  will-change: transform;
+}
+
+.card-front, .card-back {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.card-back {
+  transform: rotateY(180deg);
+}
+
+/* Анимация плавающих бейджиков */
+@keyframes float-badges {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0); }
+}
+
+.float-badges {
+  animation: float-badges 1s ease-in-out;
+}
+
+/* Общие стили для всех карточек */
+.user-card {
+  transition: box-shadow 0.3s ease, opacity 0.3s ease;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.user-card:hover {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
 .emoji-projectile {
   position: fixed;
   pointer-events: none;
@@ -77,6 +124,7 @@
   display: flex;
   flex-direction: row-reverse;
   user-select: none;
+  z-index: 10;
 }
 
 @media (min-width: 640px) {

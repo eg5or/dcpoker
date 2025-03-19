@@ -1,5 +1,4 @@
 interface GameControlsProps {
-  currentVote: number | null;
   onReveal: () => void;
   onReset: () => void;
   onResetUsers: () => void;

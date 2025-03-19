@@ -99,17 +99,30 @@ function App() {
         const elapsed = currentTime - startTime;
         const progress = Math.min(elapsed / duration, 1);
 
-        // Параболическая траектория
-        const x = startX + (endX - startX) * progress;
-        const linearY = startY + (endY - startY) * progress;
-        const parabolaHeight = Math.sin(progress * Math.PI) * maxHeight;
+        // Функция плавности для более естественного движения
+        const easeOutBack = (t: number) => {
+          const c1 = 1.70158;
+          const c3 = c1 + 1;
+          return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+        };
+        
+        // Используем различные функции для разных параметров
+        const moveProgress = progress;
+        const rotateProgress = easeOutBack(progress);
+        const scaleProgress = Math.sin(progress * Math.PI);
+
+        // Параболическая траектория с более реалистичной физикой
+        const x = startX + (endX - startX) * moveProgress;
+        const linearY = startY + (endY - startY) * moveProgress;
+        const parabolaHeight = Math.sin(moveProgress * Math.PI) * maxHeight;
         const y = linearY - parabolaHeight;
 
-        // Вращение и масштаб
-        const rotation = progress * 360;
-        const scale = 1 - Math.sin(progress * Math.PI) * 0.1;
+        // Вращение и масштаб с эффектом отскока
+        const rotation = rotateProgress * 720; // Два полных оборота
+        const scale = 1 - scaleProgress * 0.2;
 
         projectile.style.transform = `translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${scale})`;
+        projectile.style.opacity = (1 - Math.abs(progress - 0.5) * 0.5).toString(); // Немного прозрачности в середине
 
         if (progress < 1) {
           animationFrameId = requestAnimationFrame(animate);
@@ -120,9 +133,12 @@ function App() {
           
           // Эффект сжатия при попадании
           projectile.style.transform = `translate(${endX}px, ${endY}px) scale(0.5)`;
+          projectile.style.opacity = '0';
           setTimeout(() => {
-            document.body.removeChild(projectile);
-          }, 100);
+            if (document.body.contains(projectile)) {
+              document.body.removeChild(projectile);
+            }
+          }, 300);
         }
       };
 

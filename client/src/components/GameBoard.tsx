@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Socket } from 'socket.io-client';
 import { AVAILABLE_EMOJIS, GameState } from '../types';
 import { AverageScore } from './AverageScore';
@@ -37,6 +37,17 @@ export function GameBoard({
   sequence
 }: GameBoardProps) {
   const [selectedEmoji, setSelectedEmoji] = useState<string>(AVAILABLE_EMOJIS[0]);
+  const [prevGameState, setPrevGameState] = useState<GameState>(gameState);
+
+  // Сохраняем предыдущее состояние игры для анимации
+  useEffect(() => {
+    setPrevGameState(gameState);
+  }, [gameState]);
+
+  // Обработчик для сброса с анимацией
+  const handleReset = () => {
+    onReset();
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 p-4 sm:p-6 md:p-8">
@@ -45,9 +56,8 @@ export function GameBoard({
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <GameControls
-            currentVote={currentVote}
             onReveal={onReveal}
-            onReset={onReset}
+            onReset={handleReset}
             onResetUsers={onResetUsers}
           />
           <div className="flex items-center bg-gray-800 p-2 rounded-lg w-full sm:w-auto">
