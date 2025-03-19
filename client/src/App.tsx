@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { GameBoard } from './components/GameBoard';
+import { LoginForm } from './components/LoginForm';
 import { useSocket } from './hooks/useSocket';
 import type { GameState } from './types';
 import { FIBONACCI_SEQUENCE } from './types';
@@ -199,190 +201,30 @@ function App() {
 
   if (!isJoined) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <form onSubmit={handleJoin} className="bg-gray-800 p-8 rounded-lg shadow-xl">
-          <h1 className="text-2xl text-white mb-4">Войти в Scrum Poker</h1>
-          {error && (
-            <div className="bg-red-500 text-white p-3 rounded mb-4">
-              {error}
-            </div>
-          )}
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Ваше имя"
-            className="w-full p-2 mb-4 rounded bg-gray-700 text-white"
-            required
-          />
-          <button
-            type="submit"
-            className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
-          >
-            Присоединиться
-          </button>
-        </form>
-      </div>
+      <LoginForm
+        name={name}
+        setName={setName}
+        error={error}
+        socket={socket}
+        onJoin={handleJoin}
+      />
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 p-8">
-      {error && (
-        <div className="fixed top-4 right-4 bg-red-500 text-white p-3 rounded">
-          {error}
-        </div>
-      )}
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div className="flex items-center gap-4">
-            <h1 className="text-3xl text-white">Scrum Poker</h1>
-            {currentVote !== null && (
-              <div className="bg-blue-500 px-4 py-2 rounded">
-                <span className="text-white">Ваш выбор: {currentVote}</span>
-              </div>
-            )}
-          </div>
-          <div className="flex gap-4">
-            <button
-              onClick={handleReveal}
-              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-            >
-              Показать карты
-            </button>
-            <button
-              onClick={handleReset}
-              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-            >
-              Сбросить
-            </button>
-            <button
-              onClick={() => socket?.emit('users:reset')}
-              className="bg-red-700 text-white px-4 py-2 rounded hover:bg-red-800"
-            >
-              Сбросить всех пользователей
-            </button>
-          </div>
-        </div>
-
-        {gameState.isRevealed && gameState.usersChangedVoteAfterReveal.length > 0 && (
-          <div className="bg-yellow-500 text-black p-4 rounded-lg mb-8">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="font-medium">
-                  {gameState.usersChangedVoteAfterReveal.length === 1
-                    ? `Пользователь ${gameState.usersChangedVoteAfterReveal[0]} изменил свою оценку`
-                    : `Пользователи ${gameState.usersChangedVoteAfterReveal.join(', ')} изменили свои оценки`
-                  }
-                </p>
-                <p className="text-sm mt-1">Необходимо пересчитать среднее значение</p>
-              </div>
-              <button
-                onClick={handleRecalculateAverage}
-                className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800"
-              >
-                Пересчитать
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {[...gameState.users]
-            .sort((a, b) => {
-              // Сначала сортируем по онлайн статусу
-              if (a.isOnline && !b.isOnline) return -1;
-              if (!a.isOnline && b.isOnline) return 1;
-              // Если оба онлайн или оба оффлайн, сортируем по времени подключения (последние будут первыми)
-              if (a.isOnline === b.isOnline) {
-                return b.joinedAt - a.joinedAt;
-              }
-              return 0;
-            })
-            .map((user) => (
-              <div
-                key={user.id}
-                data-user-id={user.id}
-                className={`bg-gray-800 p-6 rounded-lg shadow-lg relative ${
-                  user.changedVoteAfterReveal ? 'ring-2 ring-yellow-500' : ''
-                } ${
-                  user.id === socket?.id 
-                    ? 'bg-gradient-to-br from-blue-900 to-gray-800 ring-2 ring-blue-400 transform hover:scale-105 transition-all' 
-                    : ''
-                }`}
-                onClick={() => user.id !== socket?.id && handleThrowPoop(user.id)}
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className={`text-xl ${user.id === socket?.id ? 'text-blue-300 font-bold' : 'text-white'}`}>
-                    {user.id === socket?.id ? `${user.name} (Вы)` : user.name}
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    {user.poopAttacks > 0 && (
-                      <span className="poop-counter bg-brown-500 px-2 py-1 rounded-full text-white font-bold animate-subtle-pulse flex items-center gap-1">
-                        <span className="text-lg">💩</span>
-                        <span className="bg-brown-600 px-2 py-0.5 rounded-full text-sm">
-                          {user.poopAttacks}
-                        </span>
-                      </span>
-                    )}
-                    <span className={`h-3 w-3 rounded-full ${
-                      user.isOnline ? 'bg-green-500' : 'bg-gray-500'
-                    }`} />
-                  </div>
-                </div>
-                {user.vote !== null && (
-                  <div className="text-center">
-                    <span className={`text-4xl font-bold ${
-                      gameState.isRevealed 
-                        ? user.changedVoteAfterReveal 
-                          ? 'text-yellow-500'
-                          : 'text-white'
-                        : 'text-gray-500'
-                    }`}>
-                      {gameState.isRevealed ? (user.vote === 0.1 ? '☕️' : user.vote === 0.5 ? '½' : user.vote) : '?'}
-                    </span>
-                  </div>
-                )}
-              </div>
-            ))}
-        </div>
-
-        {gameState.isRevealed && gameState.averageVote !== null && (
-          <div className="bg-gray-800 p-6 rounded-lg shadow-lg mb-8">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl text-white mb-2">Средняя оценка</h2>
-                <p className="text-4xl font-bold text-blue-500">
-                  {gameState.averageVote}
-                </p>
-              </div>
-              {gameState.consistency && (
-                <div className="text-center">
-                  <div className="text-6xl mb-2">{gameState.consistency.emoji}</div>
-                  <p className="text-white text-sm">{gameState.consistency.description}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-4">
-          {FIBONACCI_SEQUENCE.map((value) => (
-            <button
-              key={value}
-              onClick={() => handleVote(value)}
-              className={`aspect-[2/3] text-white text-xl font-bold rounded-lg flex items-center justify-center transition-colors ${
-                currentVote === value 
-                  ? 'bg-blue-700 ring-2 ring-white' 
-                  : 'bg-blue-500 hover:bg-blue-600'
-              }`}
-            >
-              {value === 0.1 ? '☕️' : value === 0.5 ? '½' : value}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
+    <GameBoard
+      socket={socket}
+      currentVote={currentVote}
+      gameState={gameState}
+      error={error}
+      onVote={handleVote}
+      onReveal={handleReveal}
+      onReset={handleReset}
+      onResetUsers={() => socket?.emit('users:reset')}
+      onRecalculateAverage={handleRecalculateAverage}
+      onThrowPoop={handleThrowPoop}
+      sequence={FIBONACCI_SEQUENCE}
+    />
   );
 }
 
