@@ -60,13 +60,26 @@
 
 /* Анимация плавающих бейджиков */
 @keyframes float-badges {
-  0% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
-  100% { transform: translateY(0); }
+  0% { 
+    transform: translateY(0) scale(1); 
+    opacity: 1;
+  }
+  30% { 
+    transform: translateY(-40px) scale(1.1); 
+    opacity: 0.8;
+  }
+  70% { 
+    transform: translateY(-40px) scale(1.1); 
+    opacity: 0.8;
+  }
+  100% { 
+    transform: translateY(0) scale(1); 
+    opacity: 1;
+  }
 }
 
 .float-badges {
-  animation: float-badges 1s ease-in-out;
+  animation: float-badges 1.2s cubic-bezier(0.5, 0, 0.4, 1);
 }
 
 /* Общие стили для всех карточек */
