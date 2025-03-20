@@ -1,16 +1,24 @@
+import dotenv from 'dotenv';
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 
+// Загружаем переменные окружения
+dotenv.config();
+
 const app = express();
 const httpServer = createServer(app);
+
+// Получаем origins из env и преобразуем в массив
+const corsOrigins = process.env.CORS_ORIGINS?.split(',') || ["http://localhost:5173"];
+
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: corsOrigins,
     methods: ["GET", "POST"]
   },
-  pingTimeout: 10000,
-  pingInterval: 5000
+  pingTimeout: parseInt(process.env.PING_TIMEOUT || '10000'),
+  pingInterval: parseInt(process.env.PING_INTERVAL || '5000')
 });
 
 type User = {
@@ -250,4 +258,5 @@ function calculateAverageVote() {
 const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log('CORS origins:', corsOrigins);
 }); 
