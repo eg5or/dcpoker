@@ -5,8 +5,8 @@ WORKDIR /app
 # Копируем файлы package.json и package-lock.json
 COPY package*.json ./
 
-# Устанавливаем зависимости и очищаем кэш npm
-RUN npm install && npm cache clean --force
+# Устанавливаем все зависимости, включая devDependencies
+RUN npm install
 
 # Копируем исходный код
 COPY . .
@@ -14,8 +14,8 @@ COPY . .
 # Собираем приложение
 RUN npm run build
 
-# Очищаем devDependencies
-RUN npm prune --production
+# Очищаем devDependencies и кэш
+RUN npm prune --production && npm cache clean --force
 
 EXPOSE 3001
 
