@@ -15,8 +15,11 @@ const corsOrigins = process.env.CORS_ORIGINS?.split(',') || ["http://localhost:5
 const io = new Server(httpServer, {
   cors: {
     origin: corsOrigins,
-    methods: ["GET", "POST"]
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true
   },
+  allowEIO3: true,
+  transports: ['websocket', 'polling'],
   pingTimeout: parseInt(process.env.PING_TIMEOUT || '10000'),
   pingInterval: parseInt(process.env.PING_INTERVAL || '5000')
 });
