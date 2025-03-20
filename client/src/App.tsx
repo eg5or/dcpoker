@@ -69,9 +69,12 @@ function App() {
     });
 
     socket.on('emoji:thrown', (targetId: string, fromId: string, emoji: string, trajectory: { startX: number; startY: number }) => {
-      console.log('Бросок эмодзи:', emoji, 'на:', targetId, 'от:', fromId, 'траектория:', trajectory);
+      console.log('Received emoji:thrown event:', { targetId, fromId, emoji, trajectory });
       const targetElement = document.querySelector(`[data-user-id="${targetId}"]`);
-      if (!targetElement) return;
+      if (!targetElement) {
+        console.log('Target element not found:', targetId);
+        return;
+      }
 
       const projectile = document.createElement('div');
       projectile.className = 'emoji-projectile';
@@ -204,6 +207,7 @@ function App() {
 
   const handleThrowEmoji = (targetId: string, emoji: string) => {
     if (!socket) return;
+    console.log('Sending throw:emoji event:', { targetId, emoji });
     socket.emit('throw:emoji', targetId, emoji);
   };
 

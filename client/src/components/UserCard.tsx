@@ -16,7 +16,7 @@ interface UserCardProps {
   user: User;
   isRevealed: boolean;
   currentUserId: string | undefined;
-  onThrowEmoji: (targetId: string, emoji: string) => void;
+  onThrowEmoji: (targetId: string) => void;
   selectedEmoji: string;
   easterEggState?: 'tilt' | 'fall' | 'shatter' | 'reset';
   onVoteAfterReveal?: () => void;
@@ -72,7 +72,6 @@ export function UserCard({
   isRevealed, 
   currentUserId, 
   onThrowEmoji, 
-  selectedEmoji,
   easterEggState,
   onVoteAfterReveal
 }: UserCardProps) {
@@ -556,7 +555,7 @@ export function UserCard({
       className="card-container relative h-[140px] sm:h-[160px] select-none"
       onClick={() => {
         if (!isCurrentUser && user.isOnline && !isFlipping) {
-          onThrowEmoji(user.id, selectedEmoji);
+          onThrowEmoji(user.id);
         } else if (isCurrentUser && user.vote === 0.1) {
           setClickCount(prev => {
             const newCount = prev + 1;

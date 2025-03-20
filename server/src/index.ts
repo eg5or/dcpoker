@@ -110,10 +110,13 @@ io.on('connection', (socket) => {
   });
 
   socket.on('throw:emoji', (targetUserId: string, emoji: string) => {
+    console.log('Received throw:emoji event:', { targetUserId, emoji });
     const targetUser = gameState.users.find(u => u.id === targetUserId);
     const fromUser = gameState.users.find(u => u.id === socket.id);
     
     if (targetUser && fromUser && targetUser.id !== fromUser.id) {
+      console.log('Users found:', { targetUser: targetUser.name, fromUser: fromUser.name });
+      
       // Инициализируем объект, если он не существует
       if (!targetUser.emojiAttacks) {
         targetUser.emojiAttacks = {};
@@ -148,12 +151,25 @@ io.on('connection', (socket) => {
       const trajectory = {
         startX,
         startY,
-        angle: Math.random() * Math.PI * 2, // полный круг для любого направления
-        speed: Math.random() * 20 + 40 // скорость от 40 до 60
+        angle: Math.random() * Math.PI * 2,
+        speed: Math.random() * 20 + 40
       };
+
+      console.log('Emitting emoji:thrown event:', {
+        targetId: targetUser.id,
+        fromId: fromUser.id,
+        emoji,
+        trajectory
+      });
 
       io.emit('emoji:thrown', targetUser.id, fromUser.id, emoji, trajectory);
       io.emit('game:state', gameState);
+    } else {
+      console.log('Users not found or same user:', {
+        targetFound: !!targetUser,
+        fromFound: !!fromUser,
+        isSameUser: targetUser?.id === fromUser?.id
+      });
     }
   });
 
