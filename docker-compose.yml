@@ -2,6 +2,7 @@ version: '3.8'
 
 services:
   client:
+    container_name: dcpoker-client
     build: 
       context: ./client
       dockerfile: Dockerfile
@@ -9,10 +10,18 @@ services:
       - "80:80"
     depends_on:
       - server
+    restart: unless-stopped
 
   server:
+    container_name: dcpoker-server
     build:
       context: ./server
       dockerfile: Dockerfile
     ports:
-      - "3001:3001" 
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - CORS_ORIGINS=http://eg5or.ru,https://eg5or.ru
+    restart: unless-stopped
+    init: true 
