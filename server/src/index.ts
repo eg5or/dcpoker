@@ -114,8 +114,8 @@ io.on('connection', (socket) => {
     io.emit('game:state', gameState);
   });
 
-  socket.on('throw:emoji', (targetUserId: string, emoji: string) => {
-    console.log('Received throw:emoji event:', { targetUserId, emoji });
+  socket.on('throw:emoji', (targetUserId: string, emoji: string, placement: { x: number, y: number, rotation: number }) => {
+    console.log('Received throw:emoji event:', { targetUserId, emoji, placement });
     const targetUser = gameState.users.find(u => u.id === targetUserId);
     const fromUser = gameState.users.find(u => u.id === socket.id);
     
@@ -167,10 +167,11 @@ io.on('connection', (socket) => {
         fromId: fromUser.id,
         emoji,
         trajectory,
+        placement,
         throwTime
       });
 
-      io.emit('emoji:thrown', targetUser.id, fromUser.id, emoji, trajectory, throwTime);
+      io.emit('emoji:thrown', targetUser.id, fromUser.id, emoji, trajectory, throwTime, placement);
       io.emit('game:state', gameState);
     } else {
       console.log('Users not found or same user:', {
@@ -208,7 +209,34 @@ io.on('connection', (socket) => {
       const user = gameState.users.find(u => u.id === userId);
       if (user) {
         user.lastShakeTime = shakeTime;
-        io.emit('emojis:shake', userId, shakeTime);
+        
+        // Подсчитываем общее количество эмодзи на карточке
+        const totalEmojis = Object.values(user.emojiAttacks || {}).reduce((sum, count) => sum + count, 0);
+        
+        if (totalEmojis > 0) {
+          // Создаем массив всех возможных индексов
+          const allIndices = Array.from({ length: totalEmojis }, (_, i) => i);
+          
+          // Перемешиваем индексы случайным образом
+          const shuffledIndices = [...allIndices].sort(() => Math.random() - 0.5);
+          
+          // Определяем, какие эмодзи должны упасть (вероятность 70-95%)
+          const fallingIndices = shuffledIndices.filter(() => {
+            const baseChance = 0.7;  // Базовый шанс падения 70%
+            const randomBonus = Math.random() * 0.25;  // Дополнительный бонус до 25%
+            const totalChance = baseChance + randomBonus;
+            return Math.random() < totalChance;
+          });
+          
+          console.log(`Server decided ${fallingIndices.length} out of ${totalEmojis} emojis should fall for user ${user.name}`);
+          
+          // Отправляем всем клиентам индексы падающих эмодзи
+          io.emit('emojis:shake', userId, shakeTime, fallingIndices);
+        } else {
+          // Если эмодзи нет, просто отправляем основное событие
+          io.emit('emojis:shake', userId, shakeTime, []);
+        }
+        
         io.emit('game:state', gameState); // Отправляем обновленное состояние
       }
     }

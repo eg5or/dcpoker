@@ -6,19 +6,22 @@ import { useSocket } from './hooks/useSocket';
 import type { GameState } from './types';
 import { FIBONACCI_SEQUENCE } from './types';
 
-interface EmojiThrowData {
+type EmojiThrowData = {
   targetId: string;
-  fromId: string;
+  fromId?: string;
   emoji: string;
   trajectory: {
     startX: number;
     startY: number;
+    angle: number;
+    speed: number;
   };
-}
-
-interface EmojiShakeData {
-  userId: string;
-}
+  placement: {
+    x: number;
+    y: number;
+    rotation: number;
+  };
+};
 
 function App() {
   const socket = useSocket();
@@ -42,151 +45,8 @@ function App() {
     data: any;
   }>>([]);
 
-  // Функция для обработки отложенных анимаций
-  const processPendingAnimations = useCallback(() => {
-    if (!isPageVisible.current || pendingAnimations.current.length === 0) return;
-
-    // Сортируем анимации по времени
-    pendingAnimations.current.sort((a, b) => a.time - b.time);
-
-    // Проверяем, есть ли сброс среди отложенных анимаций
-    const lastReset = pendingAnimations.current
-      .filter(anim => anim.type === 'fall')
-      .pop();
-
-    if (lastReset) {
-      // Если есть сброс, отбрасываем все анимации до него
-      pendingAnimations.current = pendingAnimations.current
-        .filter(anim => anim.time >= lastReset.time);
-    }
-
-    // Проверяем относительно глобального сброса и времени оттряхивания
-    pendingAnimations.current = pendingAnimations.current
-      .filter(anim => {
-        // Всегда пропускаем анимации после глобального сброса
-        if (anim.time < lastResetTime.current) return false;
-
-        // Для бросков эмодзи проверяем время оттряхивания цели
-        if (anim.type === 'throw') {
-          const targetUser = gameState.users.find(u => u.id === anim.data.targetId);
-          if (targetUser?.lastShakeTime && anim.time < targetUser.lastShakeTime) {
-            return false;
-          }
-        }
-
-        return true;
-      });
-
-    // Выполняем оставшиеся анимации
-    pendingAnimations.current.forEach(animation => {
-      switch (animation.type) {
-        case 'throw':
-          handleEmojiThrown(animation.data);
-          break;
-        case 'fall':
-          handleEmojiFall();
-          break;
-      }
-    });
-
-    // Очищаем очередь
-    pendingAnimations.current = [];
-  }, [gameState.users]);
-
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      isPageVisible.current = document.visibilityState === 'visible';
-      if (isPageVisible.current) {
-        processPendingAnimations();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [processPendingAnimations]);
-
-  useEffect(() => {
-    if (!socket) return;
-
-    socket.on('game:state', (state: GameState & { resetTime?: number }) => {
-      console.log('Получено обновление состояния:', state);
-      if (state.resetTime) {
-        lastResetTime.current = state.resetTime;
-      }
-      setGameState(state);
-      
-      const currentUser = state.users.find((u: { id: string }) => u.id === socket.id);
-      if (currentUser) {
-        setCurrentVote(currentUser.vote);
-      }
-    });
-
-    socket.on('user:joined', (user) => {
-      console.log('Пользователь присоединился:', user);
-    });
-
-    socket.on('connect_error', () => {
-      setError('Ошибка подключения к серверу');
-      setIsConnecting(false);
-    });
-
-    socket.on('disconnect', () => {
-      setError('Соединение с сервером потеряно');
-      setIsJoined(false);
-    });
-
-    socket.on('force:logout', () => {
-      localStorage.removeItem('userName');
-      setName('');
-      setIsJoined(false);
-      setCurrentVote(null);
-    });
-
-    socket.on('emojis:fall', (fallTime: number) => {
-      if (!isPageVisible.current) {
-        pendingAnimations.current.push({
-          type: 'fall',
-          time: fallTime,
-          data: null
-        });
-        return;
-      }
-      handleEmojiFall();
-    });
-
-    socket.on('emojis:reset', () => {
-      // Ретранслируем событие всем клиентам
-      socket.emit('emojis:fall');
-    });
-
-    socket.on('emoji:thrown', (targetId: string, fromId: string, emoji: string, trajectory: any, throwTime: number) => {
-      if (!isPageVisible.current) {
-        pendingAnimations.current.push({
-          type: 'throw',
-          time: throwTime,
-          data: { targetId, fromId, emoji, trajectory }
-        });
-        return;
-      }
-      handleEmojiThrown({ targetId, fromId, emoji, trajectory });
-    });
-
-    return () => {
-      socket.off('game:state');
-      socket.off('user:joined');
-      socket.off('connect_error');
-      socket.off('disconnect');
-      socket.off('force:logout');
-      socket.off('emojis:fall');
-      socket.off('emojis:reset');
-      socket.off('emoji:thrown');
-    };
-  }, [socket, processPendingAnimations]);
-
   // Выделяем функции обработки анимаций
-  const handleEmojiThrown = useCallback(({ targetId, emoji, trajectory }: EmojiThrowData) => {
+  const handleEmojiThrown = useCallback(({ targetId, emoji, trajectory, placement }: EmojiThrowData) => {
     // Проверяем, не было ли оттряхивания после броска
     const targetUser = gameState.users.find(u => u.id === targetId);
     if (targetUser?.lastShakeTime && targetUser.lastShakeTime > Date.now()) {
@@ -208,10 +68,10 @@ function App() {
     const startX = (trajectory.startX / 100) * windowWidth;
     const startY = (trajectory.startY / 100) * windowHeight;
     
-    // Генерируем случайную конечную точку внутри карточки
+    // Используем синхронизированные координаты из параметра placement
     const padding = 20; // отступ от краев
-    const randomX = Math.random() * (targetRect.width - padding * 2) + padding;
-    const randomY = Math.random() * (targetRect.height - padding * 2) + padding;
+    const randomX = (placement.x / 100) * (targetRect.width - padding * 2) + padding;
+    const randomY = (placement.y / 100) * (targetRect.height - padding * 2) + padding;
     
     // Вычисляем абсолютные координаты конечной точки
     const endX = targetRect.left + randomX;
@@ -224,8 +84,8 @@ function App() {
     let startTime: number | null = null;
     let animationFrameId: number;
 
-    // Генерируем случайный угол поворота заранее
-    const randomRotation = Math.random() * 40 - 20; // от -20 до +20 градусов
+    // Используем синхронизированный угол поворота
+    const randomRotation = placement.rotation;
 
     const animate = (currentTime: number) => {
       if (!startTime) startTime = currentTime;
@@ -302,6 +162,149 @@ function App() {
     }
   }, []);
 
+  // Функция для обработки отложенных анимаций
+  const processPendingAnimations = useCallback(() => {
+    if (!isPageVisible.current || pendingAnimations.current.length === 0) return;
+
+    // Сортируем анимации по времени
+    pendingAnimations.current.sort((a, b) => a.time - b.time);
+
+    // Проверяем, есть ли сброс среди отложенных анимаций
+    const lastReset = pendingAnimations.current
+      .filter(anim => anim.type === 'fall')
+      .pop();
+
+    if (lastReset) {
+      // Если есть сброс, отбрасываем все анимации до него
+      pendingAnimations.current = pendingAnimations.current
+        .filter(anim => anim.time >= lastReset.time);
+    }
+
+    // Проверяем относительно глобального сброса и времени оттряхивания
+    pendingAnimations.current = pendingAnimations.current
+      .filter(anim => {
+        // Всегда пропускаем анимации после глобального сброса
+        if (anim.time < lastResetTime.current) return false;
+
+        // Для бросков эмодзи проверяем время оттряхивания цели
+        if (anim.type === 'throw') {
+          const targetUser = gameState.users.find(u => u.id === anim.data.targetId);
+          if (targetUser?.lastShakeTime && anim.time < targetUser.lastShakeTime) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+
+    // Выполняем оставшиеся анимации
+    pendingAnimations.current.forEach(animation => {
+      switch (animation.type) {
+        case 'throw':
+          handleEmojiThrown(animation.data);
+          break;
+        case 'fall':
+          handleEmojiFall();
+          break;
+      }
+    });
+
+    // Очищаем очередь
+    pendingAnimations.current = [];
+  }, [gameState.users, handleEmojiThrown, handleEmojiFall]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      isPageVisible.current = document.visibilityState === 'visible';
+      if (isPageVisible.current) {
+        processPendingAnimations();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [processPendingAnimations]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on('game:state', (state: GameState & { resetTime?: number }) => {
+      console.log('Получено обновление состояния:', state);
+      if (state.resetTime) {
+        lastResetTime.current = state.resetTime;
+      }
+      setGameState(state);
+      
+      const currentUser = state.users.find((u: { id: string }) => u.id === socket.id);
+      if (currentUser) {
+        setCurrentVote(currentUser.vote);
+      }
+    });
+
+    socket.on('user:joined', (user) => {
+      console.log('Пользователь присоединился:', user);
+    });
+
+    socket.on('connect_error', () => {
+      setError('Ошибка подключения к серверу');
+      setIsConnecting(false);
+    });
+
+    socket.on('disconnect', () => {
+      setError('Соединение с сервером потеряно');
+      setIsJoined(false);
+    });
+
+    socket.on('force:logout', () => {
+      localStorage.removeItem('userName');
+      setName('');
+      setIsJoined(false);
+      setCurrentVote(null);
+    });
+
+    socket.on('emojis:fall', (fallTime: number) => {
+      if (!isPageVisible.current) {
+        pendingAnimations.current.push({
+          type: 'fall',
+          time: fallTime,
+          data: null
+        });
+        return;
+      }
+      handleEmojiFall();
+    });
+
+    socket.on('emojis:reset', () => {
+      // Ретранслируем событие всем клиентам
+      socket.emit('emojis:fall');
+    });
+
+    socket.on('emoji:thrown', (targetId: string, fromId: string, emoji: string, trajectory: any, throwTime: number, placement: { x: number, y: number, rotation: number }) => {
+      if (!isPageVisible.current) {
+        pendingAnimations.current.push({
+          type: 'throw',
+          time: throwTime,
+          data: { targetId, fromId, emoji, trajectory, placement }
+        });
+        return;
+      }
+      handleEmojiThrown({ targetId, fromId, emoji, trajectory, placement });
+    });
+
+    return () => {
+      socket.off('game:state');
+      socket.off('user:joined');
+      socket.off('connect_error');
+      socket.off('disconnect');
+      socket.off('force:logout');
+      socket.off('emojis:fall');
+      socket.off('emojis:reset');
+      socket.off('emoji:thrown');
+    };
+  }, [socket, processPendingAnimations]);
+
   // Автоматическое подключение при наличии имени в localStorage
   useEffect(() => {
     const savedName = localStorage.getItem('userName');
@@ -357,8 +360,18 @@ function App() {
 
   const handleThrowEmoji = (targetId: string, emoji: string) => {
     if (!socket) return;
-    console.log('Sending throw:emoji event:', { targetId, emoji });
-    socket.emit('throw:emoji', targetId, emoji);
+    
+    // Генерируем случайные параметры для размещения эмодзи
+    const randomX = Math.random() * 100; // Относительная позиция в процентах
+    const randomY = Math.random() * 100; // Относительная позиция в процентах
+    const randomRotation = Math.random() * 40 - 20; // от -20 до +20 градусов
+
+    // Отправляем параметры на сервер
+    socket.emit('throw:emoji', targetId, emoji, {
+      x: randomX,
+      y: randomY,
+      rotation: randomRotation
+    });
   };
 
   if (isConnecting) {

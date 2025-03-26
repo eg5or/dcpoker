@@ -122,18 +122,17 @@ export function UserCard({
           if (cardContainerRef.current) {
             cardContainerRef.current.style.transform = '';
             
-            // Запускаем анимацию падения эмодзи со случайной интенсивностью
-            const stuckEmojis = cardContainerRef.current.querySelectorAll('.stuck-emoji');
-            if (stuckEmojis?.length) {
-              console.log('[Shake] Local animation finished, starting emoji fall');
-              animateEmojisFalling(stuckEmojis, 'random');
-            }
+            // Отправляем событие на сервер
+            console.log('[Shake] Local animation finished, sending shake event to server');
+            socket.emit('emojis:shake', user.id);
+            
+            // Клиент не будет сам запускать анимацию падения эмодзи
+            // Вместо этого, сервер пришлет событие с индексами падающих эмодзи
+            // и анимация будет запущена в handleShake
           }
           
           // Сбрасываем флаг анимации после завершения
           shakeAnimationInProgress.current = false;
-          // Отправляем событие только после завершения анимации
-          socket.emit('emojis:shake', user.id);
         }
       };
       
@@ -153,16 +152,16 @@ export function UserCard({
   useEffect(() => {
     if (!socket) return;
 
-    const handleShake = (userId: string) => {
+    const handleShake = (userId: string, shakeTime: number, fallingIndices?: number[]) => {
       // Если это не наша карточка или нет контейнера, выходим
       if (userId !== user.id || !cardContainerRef.current) return;
       
-      console.log('[Shake] Received shake event from server');
+      console.log('[Shake] Received shake event from server', { fallingIndices });
       
-      // Если это текущий пользователь, пропускаем анимацию полностью
-      if (isCurrentUser) {
-        console.log('[Shake] Skipping server event - current user');
-        return;
+      // Для текущего пользователя тоже запускаем анимацию, но не дублируем тряску
+      if (isCurrentUser && localShakeAnimationStarted.current) {
+        console.log('[Shake] Current user - local tilt animation already done, running only emoji fall');
+        localShakeAnimationStarted.current = false;
       }
 
       // Если страница не видна, отмечаем что нужно выполнить анимацию позже
@@ -182,15 +181,52 @@ export function UserCard({
       if (stuckEmojis.length > 0) {
         console.log('[Shake] Starting emoji fall from server event');
         shakeAnimationInProgress.current = true;
-        // Используем случайную интенсивность для кнопки оттряхивания
-        animateEmojisFalling(stuckEmojis, 'random');
+        
+        if (fallingIndices && fallingIndices.length > 0) {
+          // Используем полученные от сервера индексы для определения падающих эмодзи
+          console.log(`[Shake] Server says ${fallingIndices.length} out of ${stuckEmojis.length} emojis should fall`);
+          
+          // Конвертируем NodeList в массив
+          const emojiArray = Array.from(stuckEmojis);
+          
+          // Фильтруем эмодзи по индексам
+          const fallingEmojis = fallingIndices
+            .filter(index => index < emojiArray.length)
+            .map(index => emojiArray[index]);
+          
+          // Запускаем анимацию только для указанных эмодзи
+          if (fallingEmojis.length > 0) {
+            // Создаем новый NodeList из падающих эмодзи
+            const fallingNodeList = {
+              length: fallingEmojis.length,
+              item: (index: number) => fallingEmojis[index],
+              [Symbol.iterator]: function* () {
+                for (let i = 0; i < this.length; i++) {
+                  yield this.item(i);
+                }
+              },
+              forEach: function(callback: (item: Element, index: number) => void) {
+                for (let i = 0; i < this.length; i++) {
+                  callback(this.item(i), i);
+                }
+              }
+            } as NodeListOf<Element>;
+            
+            // Запускаем анимацию падения для синхронизированных эмодзи
+            animateEmojisFalling(fallingNodeList, 'all');
+          }
+        } else {
+          // Для обратной совместимости, если индексы не были получены
+          animateEmojisFalling(stuckEmojis, 'random');
+        }
+        
         // После завершения анимации падения сбрасываем флаг
         setTimeout(() => {
           shakeAnimationInProgress.current = false;
           // Проверяем, не появились ли новые запросы на тряску
           if (pendingShakeAnimation.current && isPageVisible.current) {
             pendingShakeAnimation.current = false;
-            handleShake(userId);
+            handleShake(userId, shakeTime, fallingIndices);
           }
         }, 1200); // Длительность анимации падения
       }
