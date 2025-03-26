@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { GameBoard } from './components/GameBoard';
 import { LoginForm } from './components/LoginForm';
+import { animateEmojisFalling } from './components/UserCardEffects';
 import { useSocket } from './hooks/useSocket';
 import type { GameState } from './types';
 import { FIBONACCI_SEQUENCE } from './types';
@@ -315,100 +316,15 @@ function App() {
 
     const stuckEmojis = targetElement.querySelectorAll('.stuck-emoji');
     if (stuckEmojis?.length) {
-      stuckEmojis.forEach(emoji => {
-        const element = emoji as HTMLElement;
-        const rect = element.getBoundingClientRect();
-        const startY = rect.top;
-        const rotation = element.style.transform 
-          ? parseInt(element.style.transform.split('rotate(')[1]) || 0
-          : 0;
-        
-        let startTime: number | null = null;
-        const duration = 1000;
-        const fallDistance = window.innerHeight - startY + 100;
-        
-        const animate = (currentTime: number) => {
-          if (!startTime) startTime = currentTime;
-          const elapsed = currentTime - startTime;
-          const progress = Math.min(elapsed / duration, 1);
-          
-          // Функция ускорения падения
-          const fallEase = (t: number) => t < 0.5 
-            ? 2 * t * t 
-            : 1 - Math.pow(-2 * t + 2, 2) / 2;
-          
-          // Добавляем колебание при падении
-          const wobble = Math.sin(progress * Math.PI * 4) * (1 - progress) * 10;
-          
-          const fallProgress = fallEase(progress);
-          const translateY = fallDistance * fallProgress;
-          const translateX = -50 * fallProgress;
-          const currentRotation = rotation + wobble + (progress * 360);
-          
-          element.style.transform = `translate(${translateX}px, ${translateY}px) rotate(${currentRotation}deg)`;
-          
-          if (progress > 0.7) {
-            element.style.opacity = (1 - ((progress - 0.7) / 0.3)).toString();
-          }
-          
-          if (progress < 1) {
-            requestAnimationFrame(animate);
-          } else {
-            element.remove();
-          }
-        };
-        
-        requestAnimationFrame(animate);
-      });
+      animateEmojisFalling(stuckEmojis);
     }
   }, []);
 
   const handleEmojiFall = useCallback(() => {
-    document.querySelectorAll('.stuck-emoji').forEach(emoji => {
-      const element = emoji as HTMLElement;
-      const rect = element.getBoundingClientRect();
-      const startY = rect.top;
-      const rotation = element.style.transform 
-        ? parseInt(element.style.transform.split('rotate(')[1]) || 0
-        : 0;
-      
-      let startTime: number | null = null;
-      const duration = 1000;
-      const fallDistance = window.innerHeight - startY + 100;
-      
-      const animate = (currentTime: number) => {
-        if (!startTime) startTime = currentTime;
-        const elapsed = currentTime - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        
-        // Функция ускорения падения
-        const fallEase = (t: number) => t < 0.5 
-          ? 2 * t * t 
-          : 1 - Math.pow(-2 * t + 2, 2) / 2;
-        
-        // Добавляем колебание при падении
-        const wobble = Math.sin(progress * Math.PI * 4) * (1 - progress) * 10;
-        
-        const fallProgress = fallEase(progress);
-        const translateY = fallDistance * fallProgress;
-        const translateX = -50 * fallProgress;
-        const currentRotation = rotation + wobble + (progress * 360);
-        
-        element.style.transform = `translate(${translateX}px, ${translateY}px) rotate(${currentRotation}deg)`;
-        
-        if (progress > 0.7) {
-          element.style.opacity = (1 - ((progress - 0.7) / 0.3)).toString();
-        }
-        
-        if (progress < 1) {
-          requestAnimationFrame(animate);
-        } else {
-          element.remove();
-        }
-      };
-      
-      requestAnimationFrame(animate);
-    });
+    const stuckEmojis = document.querySelectorAll('.stuck-emoji');
+    if (stuckEmojis?.length) {
+      animateEmojisFalling(stuckEmojis);
+    }
   }, []);
 
   // Автоматическое подключение при наличии имени в localStorage
