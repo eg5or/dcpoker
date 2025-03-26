@@ -1,9 +1,8 @@
 import { MutableRefObject } from 'react';
-import { FlipAnimationType } from './UserCardTypes';
 
-interface AnimationRefs {
-  cardInnerRef: React.RefObject<HTMLDivElement>;
-  cardContainerRef: React.RefObject<HTMLDivElement>;
+export interface AnimationRefs {
+  cardInnerRef: MutableRefObject<HTMLDivElement | null>;
+  cardContainerRef: MutableRefObject<HTMLDivElement | null>;
   animationFrameRef: MutableRefObject<number | null>;
   animationStartTimeRef: MutableRefObject<number | null>;
   easterEggAnimationFrameRef: MutableRefObject<number | null>;
@@ -244,88 +243,184 @@ export const resetEasterEggAnimation = (refs: AnimationRefs) => {
   container.style.visibility = '';
 };
 
-export const startFlipAnimation = (
-  type: FlipAnimationType,
+export function startFlipAnimation(
+  type: 'reveal' | 'reset',
   refs: AnimationRefs,
-  onComplete: () => void
-) => {
+  onComplete?: () => void
+) {
   if (!refs.cardInnerRef.current) return;
-  
-  // Сбрасываем значения
-  refs.animationStartTimeRef.current = null;
-  
-  const flipCard = (timestamp: number) => {
-    if (!refs.cardInnerRef.current) return;
+
+  const startTime = performance.now();
+  const duration = 1500; // 1.5 seconds
+  const cardInner = refs.cardInnerRef.current;
+  const cardFront = cardInner.querySelector('.card-front') as HTMLDivElement;
+  const cardBack = cardInner.querySelector('.card-back') as HTMLDivElement;
+
+  if (!cardFront || !cardBack) return;
+
+  // Устанавливаем начальное положение
+  if (type === 'reveal') {
+    cardInner.style.transform = 'rotateY(0deg)';
+    cardFront.style.transform = 'rotateY(0deg)';
+    cardBack.style.transform = 'rotateY(180deg)';
+  } else {
+    cardInner.style.transform = 'rotateY(180deg)';
+    cardFront.style.transform = 'rotateY(0deg)';
+    cardBack.style.transform = 'rotateY(180deg)';
+  }
+
+  const animate = (currentTime: number) => {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
     
-    // Инициализируем время начала анимации
-    if (!refs.animationStartTimeRef.current) {
-      refs.animationStartTimeRef.current = timestamp;
-    }
+    // Используем easeInOutCubic для плавности
+    const eased = progress < 0.5
+      ? 4 * progress * progress * progress
+      : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+    const angle = type === 'reveal' ? eased * 180 : (1 - eased) * 180;
     
-    // Вычисляем прогресс анимации (0 to 1)
-    const elapsed = timestamp - refs.animationStartTimeRef.current;
-    const duration = 800; // 800ms
-    let progress = Math.min(elapsed / duration, 1);
-    
-    // Функция для плавности анимации
-    const easeInOutQuad = (t: number) => {
-      return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-    };
-    
-    progress = easeInOutQuad(progress);
-    
-    // Анимация переворота и других свойств
-    let rotateY, scale, elevation;
-    
-    if (type === 'reveal') {
-      rotateY = progress * 180; // от 0 до 180 градусов
-    } else {
-      rotateY = 180 - progress * 180; // от 180 до 0 градусов
-    }
-    
-    // Эффект масштабирования для ощущения объема
-    scale = 1 + Math.sin(progress * Math.PI) * 0.1; // Увеличение в середине анимации
-    
-    // Эффект подъема карточки
-    elevation = Math.sin(progress * Math.PI) * 20; // Подъем в середине анимации
-    
-    // Применяем трансформацию
-    refs.cardInnerRef.current.style.transform = `
-      rotateY(${rotateY}deg) 
-      scale(${scale}) 
-      translateZ(${elevation}px)
-    `;
-    
-    // Интенсивность тени в зависимости от прогресса
-    const shadowIntensity = Math.sin(progress * Math.PI) * 30 + 10;
-    refs.cardInnerRef.current.style.boxShadow = `0 ${shadowIntensity}px ${shadowIntensity * 2}px rgba(0, 0, 0, 0.3)`;
-    
-    // Продолжаем анимацию, если она не завершена
+    // Анимируем карточку
+    cardInner.style.transform = `rotateY(${angle}deg)`;
+
     if (progress < 1) {
-      refs.animationFrameRef.current = requestAnimationFrame(flipCard);
+      refs.animationFrameRef.current = requestAnimationFrame(animate);
     } else {
-      // Завершаем анимацию
-      refs.cardInnerRef.current.style.transition = 'transform 0.3s ease, box-shadow 0.3s ease';
-      
-      // Устанавливаем конечное состояние в зависимости от типа анимации
-      if (type === 'reveal') {
-        refs.cardInnerRef.current.style.transform = 'rotateY(180deg)';
-      } else {
-        refs.cardInnerRef.current.style.transform = 'rotateY(0deg)';
-      }
-      
-      refs.cardInnerRef.current.style.boxShadow = '';
-      
-      onComplete();
-      
-      refs.animationStartTimeRef.current = null;
       refs.animationFrameRef.current = null;
+      onComplete?.();
     }
   };
-  
-  // Устанавливаем начальное состояние
-  refs.cardInnerRef.current.style.transition = 'none';
-  
+
+  refs.animationFrameRef.current = requestAnimationFrame(animate);
+}
+
+// Функция для анимации элементов при перевороте карточки
+export const animateElements = (
+  badgesRef: MutableRefObject<HTMLDivElement | null>,
+  buttonRef: MutableRefObject<HTMLDivElement | null>,
+  animationFrameRef: MutableRefObject<number | null>,
+  animationStartTimeRef: MutableRefObject<number | null>,
+  onComplete?: () => void
+) => {
+  if (!badgesRef.current && !buttonRef.current) return;
+
+  // Сбрасываем значения
+  animationStartTimeRef.current = null;
+
+  // Находим все прилипшие эмодзи на карточке
+  const cardContainer = buttonRef.current?.closest('.card-container');
+  const stuckEmojis = cardContainer?.querySelectorAll('.stuck-emoji');
+
+  // Запускаем анимацию падения для эмодзи
+  if (stuckEmojis?.length) {
+    stuckEmojis.forEach(emoji => {
+      const initialRotation = Math.random() * 360; // Случайный начальный угол
+      (emoji as HTMLElement).style.setProperty('--initial-rotation', `${initialRotation}deg`);
+      (emoji as HTMLElement).style.transition = 'none';
+      (emoji as HTMLElement).classList.add('falling');
+    });
+  }
+
+  const animate = (timestamp: number) => {
+    // Инициализируем время начала анимации
+    if (!animationStartTimeRef.current) {
+      animationStartTimeRef.current = timestamp;
+    }
+
+    // Вычисляем прогресс анимации (0 to 1)
+    const elapsed = timestamp - animationStartTimeRef.current;
+    const duration = 800; // Синхронизируем с длительностью переворота карточки
+    let progress = Math.min(elapsed / duration, 1);
+
+    // Функция для плавности анимации
+    const easeInOut = (x: number): number => {
+      return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+    };
+
+    progress = easeInOut(progress);
+
+    // Анимация для бейджиков (движение вверх и за карточку)
+    if (badgesRef.current) {
+      const translateY = -60 * progress; // Движение вверх
+      const translateZ = -100 * progress; // Движение за карточку
+      const opacity = Math.max(0, 1 - progress * 2); // Плавное исчезновение в первой половине анимации
+
+      badgesRef.current.style.transform = `translate3d(0, ${translateY}px, ${translateZ}px)`;
+      badgesRef.current.style.opacity = opacity.toString();
+    }
+
+    // Анимация для кнопки (движение вниз и за карточку)
+    if (buttonRef.current) {
+      const translateY = 60 * progress; // Движение вниз
+      const translateZ = -100 * progress; // Движение за карточку
+      const opacity = Math.max(0, 1 - progress * 2); // Плавное исчезновение в первой половине анимации
+
+      buttonRef.current.style.transform = `translate3d(0, ${translateY}px, ${translateZ}px)`;
+      buttonRef.current.style.opacity = opacity.toString();
+    }
+
+    // Продолжаем анимацию, если она не завершена
+    if (progress < 1) {
+      animationFrameRef.current = requestAnimationFrame(animate);
+    } else {
+      // Завершаем анимацию
+      if (badgesRef.current) {
+        badgesRef.current.style.visibility = 'hidden';
+      }
+      if (buttonRef.current) {
+        buttonRef.current.style.visibility = 'hidden';
+      }
+
+      // Удаляем упавшие эмодзи
+      if (stuckEmojis?.length) {
+        setTimeout(() => {
+          stuckEmojis.forEach(emoji => {
+            if (emoji.parentNode) {
+              emoji.parentNode.removeChild(emoji);
+            }
+          });
+        }, 1000); // Ждем завершения анимации падения
+      }
+
+      animationStartTimeRef.current = null;
+      animationFrameRef.current = null;
+
+      // Запускаем возвращение элементов через 400мс (половина времени переворота)
+      setTimeout(() => {
+        if (badgesRef.current) {
+          badgesRef.current.style.transition = 'all 0.4s ease';
+          badgesRef.current.style.visibility = 'visible';
+          badgesRef.current.style.transform = '';
+          badgesRef.current.style.opacity = '';
+        }
+        if (buttonRef.current) {
+          buttonRef.current.style.transition = 'all 0.4s ease';
+          buttonRef.current.style.visibility = 'visible';
+          buttonRef.current.style.transform = '';
+          buttonRef.current.style.opacity = '';
+        }
+
+        // Убираем transition после анимации
+        setTimeout(() => {
+          if (badgesRef.current) {
+            badgesRef.current.style.transition = '';
+          }
+          if (buttonRef.current) {
+            buttonRef.current.style.transition = '';
+          }
+          onComplete?.();
+        }, 400);
+      }, 400);
+    }
+  };
+
   // Запускаем анимацию
-  refs.animationFrameRef.current = requestAnimationFrame(flipCard);
+  if (badgesRef.current) {
+    badgesRef.current.style.transition = 'none';
+  }
+  if (buttonRef.current) {
+    buttonRef.current.style.transition = 'none';
+  }
+
+  animationFrameRef.current = requestAnimationFrame(animate);
 }; 

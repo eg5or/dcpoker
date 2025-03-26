@@ -6,9 +6,10 @@ interface CardFrontProps {
   isCurrentUser: boolean;
   hasVoted: boolean;
   isRevealed: boolean;
+  style?: React.CSSProperties;
 }
 
-export function CardFront({ user, isCurrentUser, hasVoted, isRevealed }: CardFrontProps) {
+export function CardFront({ user, isCurrentUser, hasVoted, isRevealed, style }: CardFrontProps) {
   return (
     <div 
       className={`card-front rounded-lg p-4 sm:p-6 user-card ${
@@ -18,6 +19,7 @@ export function CardFront({ user, isCurrentUser, hasVoted, isRevealed }: CardFro
             ? 'bg-gray-800 hover:bg-gray-700 cursor-pointer' 
             : 'bg-gray-800 opacity-40 hover:opacity-70 cursor-pointer'
       }`}
+      style={style}
     >
       <div className="flex items-center justify-between mb-2 sm:mb-3">
         <h3 className={`text-lg sm:text-xl truncate max-w-[80%] ${isCurrentUser ? 'text-blue-300 font-bold' : 'text-white'}`}>

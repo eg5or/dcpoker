@@ -3,12 +3,14 @@ import { CardBack } from './CardBack';
 import { CardFront } from './CardFront';
 import { ShakeButton } from './ShakeButton';
 import {
+  animateElements,
   resetEasterEggAnimation,
   startFallingAnimation,
   startFlipAnimation,
   startShatterAnimation,
   startTiltAnimation
 } from './UserCardAnimations';
+import { animateEmojisFalling, cleanupAnimations, handleEasterEgg } from './UserCardEffects';
 import { EmojiCounters } from './UserCardEmoji';
 import { UserCardProps } from './UserCardTypes';
 
@@ -22,12 +24,8 @@ export function UserCard({
   socket
 }: UserCardProps) {
   const isCurrentUser = user.id === currentUserId;
-  const [isFlipping, setIsFlipping] = useState(false);
-  const [prevRevealState, setPrevRevealState] = useState<boolean>(isRevealed);
-  const [prevVoteState, setPrevVoteState] = useState<number | null>(user.vote);
   const [clickCount, setClickCount] = useState(0);
   const [currentEasterEggState, setCurrentEasterEggState] = useState<string | undefined>(undefined);
-  const [isAnimatingManually, setIsAnimatingManually] = useState(false);
 
   const cardInnerRef = useRef<HTMLDivElement>(null);
   const cardContainerRef = useRef<HTMLDivElement>(null);
@@ -35,24 +33,26 @@ export function UserCard({
   const animationStartTimeRef = useRef<number | null>(null);
   const easterEggAnimationFrameRef = useRef<number | null>(null);
   const shardsRef = useRef<HTMLDivElement[]>([]);
+  const badgesRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLDivElement>(null);
+  const lastAnimationStateRef = useRef<{
+    isRevealed: boolean;
+    vote: number | null;
+  }>({ isRevealed: false, vote: null });
+  const isAnimatingRef = useRef(false);
 
   // Получаем и сортируем эмодзи по количеству
   const emojiCounts = Object.entries(user.emojiAttacks || {})
     .filter(([_, count]) => count > 0)
     .sort((a, b) => b[1] - a[1]);
 
-  // В нашей новой логике знак вопроса отображается только когда пользователь проголосовал
   const hasVoted = user.vote !== null;
-  
-  // Отображаемое значение голоса - для перевернутой карточки
   const voteDisplay = user.vote === null ? '' : user.vote === 0.1 ? '☕️' : user.vote === 0.5 ? '½' : user.vote;
 
-  // Проверяем, есть ли прилипшие эмодзи
   const hasStuckEmojis = useCallback(() => {
     return Object.values(user.emojiAttacks || {}).some(count => count > 0);
   }, [user.emojiAttacks]);
 
-  // Обработчик оттряхивания эмодзи
   const handleShakeEmojis = useCallback(() => {
     if (!socket || !isCurrentUser) return;
     socket.emit('emojis:shake', user.id);
@@ -64,41 +64,17 @@ export function UserCard({
 
     const handleShake = (userId: string) => {
       if (userId !== user.id || !cardContainerRef.current) return;
-
       const stuckEmojis = cardContainerRef.current.querySelectorAll('.stuck-emoji');
-      stuckEmojis.forEach((emoji, index) => {
-        // Сохраняем текущий угол поворота
-        const currentTransform = window.getComputedStyle(emoji).transform;
-        const currentRotation = currentTransform.includes('rotate') 
-          ? parseFloat(currentTransform.split('rotate(')[1]) 
-          : 0;
-        
-        // Устанавливаем начальный угол для анимации
-        (emoji as HTMLElement).style.setProperty('--initial-rotation', `${currentRotation}deg`);
-        
-        // Добавляем небольшую задержку для каждого следующего эмодзи
-        setTimeout(() => {
-          emoji.classList.add('falling');
-        }, index * 50);
-        
-        // Удаляем эмодзи после завершения анимации
-        emoji.addEventListener('animationend', () => {
-          emoji.remove();
-        }, { once: true });
-      });
+      animateEmojisFalling(stuckEmojis);
     };
 
     socket.on('emojis:shake', handleShake);
-
-    return () => {
-      socket.off('emojis:shake', handleShake);
-    };
+    return () => socket.off('emojis:shake', handleShake);
   }, [socket, user.id]);
 
   // Обработка пасхалки
   useEffect(() => {
     if (isCurrentUser && user.vote === 0.1 && easterEggState) {
-      // Если пасхалка активирована для текущего пользователя и он выбрал кофе
       setCurrentEasterEggState(easterEggState);
       
       const refs = {
@@ -110,29 +86,18 @@ export function UserCard({
         shardsRef
       };
 
-      // Запускаем соответствующую анимацию
-      if (easterEggState === 'tilt') {
-        startTiltAnimation(clickCount, refs);
-      } else if (easterEggState === 'fall') {
-        startFallingAnimation(refs);
-        
-        // Автоматический переход к разбитию через время
-        const timeout = setTimeout(() => {
-          setCurrentEasterEggState('shatter');
-        }, 1500);
-        return () => clearTimeout(timeout);
-      } else if (easterEggState === 'shatter') {
-        startShatterAnimation(refs);
-        
-        // Сброс состояния через время
-        const timeout = setTimeout(() => {
-          resetEasterEggAnimation(refs);
-          setCurrentEasterEggState(undefined);
-        }, 3000);
-        return () => clearTimeout(timeout);
-      }
+      const timeout = handleEasterEgg(easterEggState, clickCount, refs, {
+        setCurrentEasterEggState,
+        resetEasterEggAnimation,
+        startTiltAnimation,
+        startFallingAnimation,
+        startShatterAnimation
+      });
+
+      return () => {
+        if (timeout) clearTimeout(timeout);
+      };
     } else if (easterEggState === 'reset') {
-      // Сбрасываем пасхалку
       const refs = {
         cardInnerRef,
         cardContainerRef,
@@ -146,38 +111,26 @@ export function UserCard({
     }
   }, [easterEggState, isCurrentUser, user.vote, clickCount]);
 
-  // Очистка анимаций при размонтировании компонента
+  // Очистка анимаций при размонтировании
   useEffect(() => {
     return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      
-      if (easterEggAnimationFrameRef.current) {
-        cancelAnimationFrame(easterEggAnimationFrameRef.current);
-      }
-      
-      // Очищаем осколки
-      shardsRef.current.forEach(shard => {
-        if (shard.parentNode) {
-          shard.parentNode.removeChild(shard);
-        }
-      });
+      cleanupAnimations(animationFrameRef, easterEggAnimationFrameRef, shardsRef);
     };
   }, []);
 
-  // Отдельный эффект для обновления prevRevealState
+  // Инициализируем lastAnimationStateRef при монтировании
   useEffect(() => {
-    setPrevRevealState(isRevealed);
-  }, [isRevealed]);
+    lastAnimationStateRef.current = { isRevealed, vote: user.vote };
+  }, []);
 
-  // Эффект для анимации
+  // Единый эффект для анимации
   useEffect(() => {
-    // Если анимация уже идет, не запускаем новую
-    if (isFlipping) return;
-    
-    // Проверяем, что пользователь онлайн, иначе не переворачиваем его карточку
-    if (!user.isOnline) return;
+    if (!user.isOnline || isAnimatingRef.current) return;
+
+    const lastState = lastAnimationStateRef.current;
+    const shouldAnimate = lastState.isRevealed !== isRevealed || lastState.vote !== user.vote;
+
+    if (!shouldAnimate) return;
 
     const refs = {
       cardInnerRef,
@@ -188,122 +141,67 @@ export function UserCard({
       shardsRef
     };
 
-    // Проверяем, не проголосовал ли пользователь после раскрытия карт
-    if (isRevealed && prevVoteState === null && user.vote !== null) {
-      // Помечаем что голос был изменен после раскрытия
-      user.changedVoteAfterReveal = true;
-      startFlipAnimation('reveal', refs, () => {
-        setIsFlipping(false);
-        setIsAnimatingManually(false);
-      });
-      // Вызываем callback для показа баннера
-      onVoteAfterReveal?.();
-    }
-    // Если карты только что вскрыли
-    else if (!prevRevealState && isRevealed) {
-      // Анимируем падение эмодзи перед переворотом карточки
+    const startFlipWithAnimation = (type: 'reveal' | 'reset') => {
+      isAnimatingRef.current = true;
+
+      // Если есть прилипшие эмодзи, запускаем их падение при любом перевороте
       if (cardContainerRef.current) {
         const stuckEmojis = cardContainerRef.current.querySelectorAll('.stuck-emoji');
-        stuckEmojis.forEach((emoji, index) => {
-          // Сохраняем текущий угол поворота
-          const currentTransform = window.getComputedStyle(emoji).transform;
-          const currentRotation = currentTransform.includes('rotate') 
-            ? parseFloat(currentTransform.split('rotate(')[1]) 
-            : 0;
-          
-          // Устанавливаем начальный угол для анимации
-          (emoji as HTMLElement).style.setProperty('--initial-rotation', `${currentRotation}deg`);
-          
-          // Добавляем небольшую задержку для каждого следующего эмодзи
-          setTimeout(() => {
-            emoji.classList.add('falling');
-          }, index * 50);
-          
-          // Удаляем эмодзи после завершения анимации
-          emoji.addEventListener('animationend', () => {
-            emoji.remove();
-          }, { once: true });
-        });
-        
-        // Даем время для начала анимации падения перед переворотом
-        setTimeout(() => {
-          // Переворачиваем только если есть голос
-          if (hasVoted) {
-            startFlipAnimation('reveal', refs, () => {
-              setIsFlipping(false);
-              setIsAnimatingManually(false);
-            });
-          }
-        }, 100);
-      }
-    }
-    // Если карты сбросили 
-    else if (prevRevealState && !isRevealed) {
-      // Анимируем падение эмодзи перед переворотом карточки
-      if (cardContainerRef.current) {
-        const stuckEmojis = cardContainerRef.current.querySelectorAll('.stuck-emoji');
-        if (stuckEmojis.length > 0) {
-          stuckEmojis.forEach((emoji, index) => {
-            // Сохраняем текущий угол поворота
-            const currentTransform = window.getComputedStyle(emoji).transform;
-            const currentRotation = currentTransform.includes('rotate') 
-              ? parseFloat(currentTransform.split('rotate(')[1]) 
-              : 0;
-            
-            // Устанавливаем начальный угол для анимации
-            (emoji as HTMLElement).style.setProperty('--initial-rotation', `${currentRotation}deg`);
-            
-            // Добавляем небольшую задержку для каждого следующего эмодзи
-            setTimeout(() => {
-              emoji.classList.add('falling');
-            }, index * 50);
-            
-            // Удаляем эмодзи после завершения анимации
-            emoji.addEventListener('animationend', () => {
-              emoji.remove();
-            }, { once: true });
-          });
-          
-          // Даем время для начала анимации падения перед переворотом
-          setTimeout(() => {
-            if (hasVoted) {
-              startFlipAnimation('reset', refs, () => {
-                setIsFlipping(false);
-                setIsAnimatingManually(false);
-              });
-            }
-          }, 100);
-        } else {
-          // Если нет эмодзи, просто переворачиваем карточку
-          if (hasVoted) {
-            startFlipAnimation('reset', refs, () => {
-              setIsFlipping(false);
-              setIsAnimatingManually(false);
-            });
-          }
+        if (stuckEmojis?.length) {
+          animateEmojisFalling(stuckEmojis);
         }
       }
-    }
 
-    // Сохраняем текущее состояние голоса для следующего сравнения
-    setPrevVoteState(user.vote);
-  }, [isRevealed, user.vote, prevRevealState, prevVoteState, isCurrentUser, isFlipping, user.isOnline, hasVoted, onVoteAfterReveal]);
+      // Запускаем анимацию элементов
+      animateElements(badgesRef, buttonRef, animationFrameRef, animationStartTimeRef);
 
-  // Расчет стилей для внутреннего контейнера карточки
-  const getCardStyles = () => {
-    // Если карточка в обычном состоянии, передаем управление React
-    if (!isAnimatingManually && !currentEasterEggState) {
-      return {
-        transform: isRevealed && hasVoted ? 'rotateY(180deg)' : 'rotateY(0deg)',
-        transformOrigin: 'center center'
-      };
-    }
-    
-    // В остальных случаях управляет JavaScript-анимация
-    return { 
-      transformOrigin: 'center center'
+      // Запускаем анимацию переворота карточки
+      startFlipAnimation(type, refs, () => {
+        isAnimatingRef.current = false;
+        lastAnimationStateRef.current = { isRevealed, vote: user.vote };
+      });
     };
-  };
+
+    // Определяем тип анимации
+    if (!lastState?.isRevealed && isRevealed && hasVoted) {
+      // Открытие карт
+      startFlipWithAnimation('reveal');
+    } else if (lastState?.isRevealed && !isRevealed) {
+      // Сброс карт
+      startFlipWithAnimation('reset');
+    } else if (isRevealed && lastState?.vote === null && user.vote !== null) {
+      // Изменение голоса после раскрытия
+      user.changedVoteAfterReveal = true;
+      startFlipWithAnimation('reveal');
+      onVoteAfterReveal?.();
+    }
+  }, [isRevealed, user.vote, user.isOnline, hasVoted, onVoteAfterReveal]);
+
+  const getCardStyles = () => ({
+    transformOrigin: 'center center',
+    transform: 'rotateY(0deg)',
+    transformStyle: 'preserve-3d' as const,
+    backfaceVisibility: 'hidden' as const,
+    WebkitBackfaceVisibility: 'hidden' as const
+  });
+
+  const getFrontStyles = () => ({
+    transform: 'rotateY(0deg)',
+    backfaceVisibility: 'hidden' as const,
+    WebkitBackfaceVisibility: 'hidden' as const,
+    position: 'absolute' as const,
+    width: '100%',
+    height: '100%'
+  });
+
+  const getBackStyles = () => ({
+    transform: 'rotateY(180deg)',
+    backfaceVisibility: 'hidden' as const,
+    WebkitBackfaceVisibility: 'hidden' as const,
+    position: 'absolute' as const,
+    width: '100%',
+    height: '100%'
+  });
   
   return (
     <div 
@@ -311,7 +209,7 @@ export function UserCard({
       data-user-id={user.id}
       className="card-container relative h-[140px] sm:h-[160px] select-none"
       onClick={() => {
-        if (!isCurrentUser && user.isOnline && !isFlipping) {
+        if (!isCurrentUser && user.isOnline && !isAnimatingRef.current) {
           onThrowEmoji(user.id);
         } else if (isCurrentUser && user.vote === 0.1) {
           setClickCount(prev => {
@@ -336,38 +234,41 @@ export function UserCard({
     >
       {/* Кнопка оттряхивания эмодзи */}
       {isCurrentUser && hasStuckEmojis() && (
-        <ShakeButton onClick={(e) => {
-          e.stopPropagation();
-          handleShakeEmojis();
-        }} />
+        <div ref={buttonRef} className="absolute left-0 bottom-0">
+          <ShakeButton onClick={(e) => {
+            e.stopPropagation();
+            handleShakeEmojis();
+          }} />
+        </div>
       )}
 
       {/* Бейджики с эмодзи */}
-      <EmojiCounters 
-        emojiCounts={emojiCounts}
-        isFloating={false}
-      />
+      <div ref={badgesRef}>
+        <EmojiCounters 
+          emojiCounts={emojiCounts}
+          isFloating={false}
+        />
+      </div>
       
       {/* Контейнер для 3D-вращения */}
       <div 
         ref={cardInnerRef}
-        className="card-inner w-full h-full" 
+        className="card-inner w-full h-full relative" 
         style={getCardStyles()}
       >
-        {/* Передняя сторона карточки (нераскрытая) */}
         <CardFront 
           user={user}
           isCurrentUser={isCurrentUser}
           hasVoted={hasVoted}
           isRevealed={isRevealed}
+          style={getFrontStyles()}
         />
-
-        {/* Задняя сторона карточки (раскрытая) */}
         <CardBack 
           user={user}
           isCurrentUser={isCurrentUser}
           hasVoted={hasVoted}
           voteDisplay={voteDisplay}
+          style={getBackStyles()}
         />
       </div>
     </div>

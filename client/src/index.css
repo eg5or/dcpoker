@@ -2,16 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@keyframes shake {
-  0%, 100% { transform: translateX(0) rotate(0); }
-  25% { transform: translateX(-5px) rotate(-2deg); }
-  75% { transform: translateX(5px) rotate(2deg); }
-}
-
-.animate-shake {
-  animation: shake 0.5s cubic-bezier(0.36, 0, 0.66, -0.56);
-}
-
 /* Стили для осколков */
 .shard {
   position: absolute;
@@ -40,52 +30,25 @@
 .card-inner {
   position: relative;
   transform-style: preserve-3d;
-  transition: transform 0s;
-  will-change: transform;
+  transition: none;
 }
 
-.card-front, .card-back {
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
+.card-front,
+.card-back {
   position: absolute;
-  top: 0;
-  left: 0;
   width: 100%;
   height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transition: none;
 }
 
 .card-back {
-  transform: rotateY(180deg);
-}
-
-/* Анимация плавающих бейджиков */
-@keyframes float-badges {
-  0% { 
-    transform: translateY(0) scale(1); 
-    opacity: 1;
-  }
-  30% { 
-    transform: translateY(-40px) scale(1.1); 
-    opacity: 0.8;
-  }
-  70% { 
-    transform: translateY(-40px) scale(1.1); 
-    opacity: 0.8;
-  }
-  100% { 
-    transform: translateY(0) scale(1); 
-    opacity: 1;
-  }
-}
-
-.float-badges {
-  animation: float-badges 1.5s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 20;
+  transform: none;
 }
 
 /* Общие стили для всех карточек */
 .user-card {
-  transition: box-shadow 0.3s ease, opacity 0.3s ease;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
 }
 
@@ -105,15 +68,6 @@
   user-select: none;
 }
 
-@keyframes subtle-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-}
-
-.animate-subtle-pulse {
-  animation: subtle-pulse 2s infinite ease-in-out;
-}
-
 .emoji-counter {
   position: relative;
   display: flex;
@@ -123,7 +77,6 @@
   border-radius: 9999px;
   padding: 0.125rem 0.25rem;
   font-size: 14px;
-  transition: all 0.2s;
   margin-left: -6px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(80, 80, 80, 0.5);
@@ -143,12 +96,6 @@
 
 .emoji-counter:first-child {
   margin-left: 0;
-}
-
-.emoji-counter:hover {
-  transform: scale(1.1) translateY(-2px);
-  z-index: 5;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
 }
 
 .emoji-counters {
@@ -178,32 +125,12 @@
   pointer-events: none;
   z-index: 5;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-  transition: transform 0.3s ease;
-}
-
-.stuck-emoji:hover {
-  transform: scale(1.2);
-}
-
-@keyframes emoji-fall {
-  0% {
-    transform: translateY(0) rotate(var(--initial-rotation));
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(1000px) rotate(calc(var(--initial-rotation) + 360deg));
-    opacity: 0;
-  }
-}
-
-.stuck-emoji.falling {
-  animation: emoji-fall 1s ease-in forwards;
 }
 
 .shake-button {
   position: absolute;
-  bottom: 8px;
-  left: 8px;
+  bottom: -8px;
+  left: -8px;
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -213,14 +140,21 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s ease;
   z-index: 20;
   color: white;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
+@media (min-width: 640px) {
+  .shake-button {
+    bottom: -10px;
+    left: -10px;
+    width: 36px;
+    height: 36px;
+  }
+}
+
 .shake-button:hover {
-  transform: scale(1.1);
   background-color: rgba(60, 60, 60, 0.95);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
 }
@@ -246,7 +180,6 @@
   white-space: nowrap;
   opacity: 0;
   visibility: hidden;
-  transition: all 0.2s ease;
 }
 
 .shake-button:hover .shake-button-tooltip {

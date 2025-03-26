@@ -6,9 +6,10 @@ interface CardBackProps {
   isCurrentUser: boolean;
   hasVoted: boolean;
   voteDisplay: string | number;
+  style?: React.CSSProperties;
 }
 
-export function CardBack({ user, isCurrentUser, hasVoted, voteDisplay }: CardBackProps) {
+export function CardBack({ user, isCurrentUser, hasVoted, voteDisplay, style }: CardBackProps) {
   return (
     <div 
       className={`card-back rounded-lg p-4 sm:p-6 user-card ${
@@ -20,6 +21,7 @@ export function CardBack({ user, isCurrentUser, hasVoted, voteDisplay }: CardBac
               ? 'bg-gray-800' 
               : 'bg-gray-800 opacity-40'
       }`}
+      style={style}
     >
       <div className="flex items-center justify-between mb-2 sm:mb-3">
         <h3 className={`text-lg sm:text-xl truncate max-w-[80%] ${
