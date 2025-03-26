@@ -1,14 +1,16 @@
-export interface User {
+export type User = {
   id: string;
   name: string;
-  vote: number | null;
   isOnline: boolean;
+  vote: number | null;
   changedVoteAfterReveal?: boolean;
   joinedAt: number;
   emojiAttacks: {
     [emoji: string]: number;
   };
-}
+  lastResetTime?: number;
+  lastShakeTime?: number;
+};
 
 export interface Consistency {
   emoji: string;

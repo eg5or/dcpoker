@@ -26,6 +26,9 @@ export function UserCard({
   const isCurrentUser = user.id === currentUserId;
   const [clickCount, setClickCount] = useState(0);
   const [_, setCurrentEasterEggState] = useState<string | undefined>(undefined);
+  const shakeAnimationInProgress = useRef(false);
+  const isPageVisible = useRef(true);
+  const pendingShakeAnimation = useRef(false);
 
   const cardInnerRef = useRef<HTMLDivElement>(null);
   const cardContainerRef = useRef<HTMLDivElement>(null);
@@ -53,13 +56,38 @@ export function UserCard({
     return Object.values(user.emojiAttacks || {}).some(count => count > 0);
   }, [user.emojiAttacks]);
 
+  // Отслеживаем видимость страницы
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      isPageVisible.current = document.visibilityState === 'visible';
+      
+      // Если страница стала видимой и есть отложенная анимация тряски
+      if (isPageVisible.current && pendingShakeAnimation.current && !shakeAnimationInProgress.current) {
+        pendingShakeAnimation.current = false;
+        const stuckEmojis = cardContainerRef.current?.querySelectorAll('.stuck-emoji');
+        if (stuckEmojis?.length) {
+          animateEmojisFalling(stuckEmojis);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
   const handleShakeEmojis = useCallback(() => {
-    if (!socket || !isCurrentUser) return;
+    if (!socket || !isCurrentUser || shakeAnimationInProgress.current) return;
+    
+    // Устанавливаем флаг анимации
+    shakeAnimationInProgress.current = true;
     
     // Добавляем тряску карточки
     if (cardContainerRef.current) {
       let startTime: number | null = null;
       const duration = 500; // 0.5 секунды
+      let animationFrameId: number;
       
       const animateShake = (currentTime: number) => {
         if (!startTime) startTime = currentTime;
@@ -73,7 +101,7 @@ export function UserCard({
         }
         
         // Создаем эффект тряски с затуханием
-        const intensity = (1 - easeOutElastic(progress)) * 5; // Используем easeOutElastic
+        const intensity = (1 - easeOutElastic(progress)) * 5;
         const shakeX = Math.sin(progress * Math.PI * 8) * intensity;
         const shakeY = Math.cos(progress * Math.PI * 6) * intensity;
         
@@ -82,19 +110,28 @@ export function UserCard({
         }
         
         if (progress < 1) {
-          requestAnimationFrame(animateShake);
+          animationFrameId = requestAnimationFrame(animateShake);
         } else {
           // Возвращаем карточку в исходное положение
           if (cardContainerRef.current) {
             cardContainerRef.current.style.transform = '';
           }
+          // Сбрасываем флаг анимации после завершения
+          shakeAnimationInProgress.current = false;
+          // Отправляем событие только после завершения анимации
+          socket.emit('emojis:shake', user.id);
         }
       };
       
-      requestAnimationFrame(animateShake);
+      animationFrameId = requestAnimationFrame(animateShake);
+      
+      return () => {
+        if (animationFrameId) {
+          cancelAnimationFrame(animationFrameId);
+          shakeAnimationInProgress.current = false;
+        }
+      };
     }
-    
-    socket.emit('emojis:shake', user.id);
   }, [socket, isCurrentUser, user.id]);
 
   // Обработчик события оттряхивания
@@ -103,15 +140,51 @@ export function UserCard({
 
     const handleShake = (userId: string) => {
       if (userId !== user.id || !cardContainerRef.current) return;
+      
+      // Если страница не видна, отмечаем что нужно выполнить анимацию позже
+      if (!isPageVisible.current) {
+        pendingShakeAnimation.current = true;
+        return;
+      }
+
+      // Если анимация уже идет, пропускаем
+      if (shakeAnimationInProgress.current) return;
+
       const stuckEmojis = cardContainerRef.current.querySelectorAll('.stuck-emoji');
-      animateEmojisFalling(stuckEmojis);
+      if (stuckEmojis.length > 0) {
+        shakeAnimationInProgress.current = true;
+        animateEmojisFalling(stuckEmojis);
+        // После завершения анимации падения сбрасываем флаг
+        setTimeout(() => {
+          shakeAnimationInProgress.current = false;
+          // Проверяем, не появились ли новые запросы на тряску
+          if (pendingShakeAnimation.current && isPageVisible.current) {
+            pendingShakeAnimation.current = false;
+            handleShake(userId);
+          }
+        }, 1200); // Длительность анимации падения
+      }
     };
 
     const handleResetEmojis = () => {
       if (!cardContainerRef.current) return;
+      
+      // Если страница не видна, отмечаем что нужно выполнить анимацию позже
+      if (!isPageVisible.current) {
+        pendingShakeAnimation.current = true;
+        return;
+      }
+
+      // Если анимация уже идет, пропускаем
+      if (shakeAnimationInProgress.current) return;
+
       const stuckEmojis = cardContainerRef.current.querySelectorAll('.stuck-emoji');
       if (stuckEmojis?.length) {
+        shakeAnimationInProgress.current = true;
         animateEmojisFalling(stuckEmojis);
+        setTimeout(() => {
+          shakeAnimationInProgress.current = false;
+        }, 1200);
       }
     };
 

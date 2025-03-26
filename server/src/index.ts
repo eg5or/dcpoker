@@ -34,6 +34,8 @@ type User = {
   emojiAttacks: {
     [emoji: string]: number;
   };
+  lastResetTime?: number;
+  lastShakeTime?: number;
 };
 
 type GameState = {
@@ -129,23 +131,23 @@ io.on('connection', (socket) => {
       targetUser.emojiAttacks[emoji] = (targetUser.emojiAttacks[emoji] || 0) + 1;
       
       // Генерируем случайную траекторию
-      const side = Math.floor(Math.random() * 4); // 0: top, 1: right, 2: bottom, 3: left
+      const side = Math.floor(Math.random() * 4);
       let startX, startY;
       
       switch(side) {
-        case 0: // сверху
+        case 0:
           startX = Math.random() * 100;
           startY = -10;
           break;
-        case 1: // справа
+        case 1:
           startX = 110;
           startY = Math.random() * 100;
           break;
-        case 2: // снизу
+        case 2:
           startX = Math.random() * 100;
           startY = 110;
           break;
-        case 3: // слева
+        case 3:
           startX = -10;
           startY = Math.random() * 100;
           break;
@@ -158,14 +160,17 @@ io.on('connection', (socket) => {
         speed: Math.random() * 20 + 40
       };
 
+      const throwTime = Date.now();
+
       console.log('Emitting emoji:thrown event:', {
         targetId: targetUser.id,
         fromId: fromUser.id,
         emoji,
-        trajectory
+        trajectory,
+        throwTime
       });
 
-      io.emit('emoji:thrown', targetUser.id, fromUser.id, emoji, trajectory);
+      io.emit('emoji:thrown', targetUser.id, fromUser.id, emoji, trajectory, throwTime);
       io.emit('game:state', gameState);
     } else {
       console.log('Users not found or same user:', {
@@ -177,27 +182,36 @@ io.on('connection', (socket) => {
   });
 
   socket.on('game:reset', () => {
-    // Сначала отправляем сигнал для анимации падения эмодзи
-    io.emit('emojis:fall');
+    const resetTime = Date.now();
+    // Сначала сбрасываем состояние игры
+    gameState.users.forEach(user => {
+      user.vote = null;
+      user.changedVoteAfterReveal = false;
+      user.emojiAttacks = {};
+      user.lastResetTime = resetTime;
+    });
+    gameState.isRevealed = false;
+    gameState.averageVote = null;
+    gameState.usersChangedVoteAfterReveal = [];
     
-    // После небольшой задержки сбрасываем состояние игры
-    setTimeout(() => {
-      gameState.users.forEach(user => {
-        user.vote = null;
-        user.changedVoteAfterReveal = false;
-        user.emojiAttacks = {};
-      });
-      gameState.isRevealed = false;
-      gameState.averageVote = null;
-      gameState.usersChangedVoteAfterReveal = [];
-      io.emit('game:state', gameState);
-    }, 1000); // Даем время для анимации падения
+    // Отправляем обновленное состояние с временем сброса
+    io.emit('game:state', { ...gameState, resetTime });
+    
+    // После обновления состояния отправляем сигнал для анимации падения
+    io.emit('emojis:fall', resetTime);
   });
 
   socket.on('emojis:shake', (userId: string) => {
     // Проверяем, что пользователь пытается оттряхнуть свою карточку
     if (socket.id === userId) {
-      io.emit('emojis:shake', userId);
+      const shakeTime = Date.now();
+      const user = gameState.users.find(u => u.id === userId);
+      if (user) {
+        user.lastShakeTime = shakeTime;
+        user.emojiAttacks = {}; // Очищаем эмодзи при оттряхивании
+        io.emit('emojis:shake', userId, shakeTime);
+        io.emit('game:state', gameState); // Отправляем обновленное состояние
+      }
     }
   });
 
