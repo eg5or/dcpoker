@@ -107,7 +107,6 @@ export const handleCardAnimation = (
     hasVoted: boolean;
     cardContainerRef: MutableRefObject<HTMLDivElement | null>;
   },
-  refs: AnimationRefs,
   callbacks: {
     setIsFlipping: (value: boolean) => void;
     setIsAnimatingManually: (value: boolean) => void;
@@ -116,7 +115,7 @@ export const handleCardAnimation = (
   }
 ) => {
   const { isRevealed, prevRevealState, prevVoteState, user, hasVoted, cardContainerRef } = params;
-  const { setIsFlipping, setIsAnimatingManually, startFlipAnimation, onVoteAfterReveal } = callbacks;
+  const { startFlipAnimation, onVoteAfterReveal } = callbacks;
 
   // Если карточка уже в процессе анимации, не начинаем новую
   if (!cardContainerRef.current) return;

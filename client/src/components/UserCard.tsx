@@ -25,7 +25,7 @@ export function UserCard({
 }: UserCardProps) {
   const isCurrentUser = user.id === currentUserId;
   const [clickCount, setClickCount] = useState(0);
-  const [currentEasterEggState, setCurrentEasterEggState] = useState<string | undefined>(undefined);
+  const [_, setCurrentEasterEggState] = useState<string | undefined>(undefined);
 
   const cardInnerRef = useRef<HTMLDivElement>(null);
   const cardContainerRef = useRef<HTMLDivElement>(null);

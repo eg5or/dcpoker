@@ -73,7 +73,6 @@ function App() {
       document.querySelectorAll('.stuck-emoji').forEach(emoji => {
         const element = emoji as HTMLElement;
         const rect = element.getBoundingClientRect();
-        const startX = rect.left;
         const startY = rect.top;
         const rotation = element.style.transform 
           ? parseInt(element.style.transform.split('rotate(')[1]) || 0
