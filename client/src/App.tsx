@@ -87,8 +87,15 @@ function App() {
       
       const startX = (trajectory.startX / 100) * windowWidth;
       const startY = (trajectory.startY / 100) * windowHeight;
-      const endX = targetRect.left + targetRect.width / 2;
-      const endY = targetRect.top + targetRect.height / 2;
+      
+      // Генерируем случайную конечную точку внутри карточки
+      const padding = 20; // отступ от краев
+      const randomX = Math.random() * (targetRect.width - padding * 2) + padding;
+      const randomY = Math.random() * (targetRect.height - padding * 2) + padding;
+      
+      // Вычисляем абсолютные координаты конечной точки
+      const endX = targetRect.left + randomX;
+      const endY = targetRect.top + randomY;
 
       const distance = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
       const maxHeight = distance * 0.3;
@@ -96,6 +103,9 @@ function App() {
 
       let startTime: number | null = null;
       let animationFrameId: number;
+
+      // Генерируем случайный угол поворота заранее
+      const randomRotation = Math.random() * 40 - 20; // от -20 до +20 градусов
 
       const animate = (currentTime: number) => {
         if (!startTime) startTime = currentTime;
@@ -121,11 +131,11 @@ function App() {
         const y = linearY - parabolaHeight;
 
         // Вращение и масштаб с эффектом отскока
-        const rotation = rotateProgress * 720; // Два полных оборота
+        const rotation = rotateProgress * 720 + randomRotation; // Добавляем конечный угол поворота
         const scale = 1 - scaleProgress * 0.2;
 
         projectile.style.transform = `translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${scale})`;
-        projectile.style.opacity = (1 - Math.abs(progress - 0.5) * 0.5).toString(); // Немного прозрачности в середине
+        projectile.style.opacity = (1 - Math.abs(progress - 0.5) * 0.5).toString();
 
         if (progress < 1) {
           animationFrameId = requestAnimationFrame(animate);
@@ -134,14 +144,23 @@ function App() {
           targetElement.classList.add('animate-shake');
           setTimeout(() => targetElement.classList.remove('animate-shake'), 500);
           
-          // Эффект сжатия при попадании
-          projectile.style.transform = `translate(${endX}px, ${endY}px) scale(0.5)`;
-          projectile.style.opacity = '0';
-          setTimeout(() => {
-            if (document.body.contains(projectile)) {
-              document.body.removeChild(projectile);
-            }
-          }, 300);
+          // Создаем "прилипший" эмодзи
+          const stuckEmoji = document.createElement('div');
+          stuckEmoji.className = 'stuck-emoji';
+          stuckEmoji.textContent = emoji;
+          
+          // Используем те же координаты, что и конечная точка полета
+          stuckEmoji.style.left = `${randomX}px`;
+          stuckEmoji.style.top = `${randomY}px`;
+          stuckEmoji.style.transform = `rotate(${randomRotation}deg)`;
+          
+          // Добавляем эмодзи в карточку
+          targetElement.appendChild(stuckEmoji);
+          
+          // Удаляем летящий эмодзи
+          if (document.body.contains(projectile)) {
+            document.body.removeChild(projectile);
+          }
         }
       };
 

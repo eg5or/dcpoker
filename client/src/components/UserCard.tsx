@@ -423,6 +423,12 @@ export function UserCard({
     else if (prevRevealState && !isRevealed && hasVoted) {
       // При сбросе переворачиваем только карты, которые были с голосом
       startFlipAnimation('reset');
+      
+      // Очищаем прилипшие эмодзи
+      if (cardContainerRef.current) {
+        const stuckEmojis = cardContainerRef.current.querySelectorAll('.stuck-emoji');
+        stuckEmojis.forEach(emoji => emoji.remove());
+      }
     }
 
     // Сохраняем текущее состояние для следующего сравнения

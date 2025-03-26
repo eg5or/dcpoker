@@ -168,3 +168,19 @@
     right: -10px;
   }
 }
+
+/* Стили для прилипших эмодзи */
+.stuck-emoji {
+  position: absolute;
+  font-size: 1.5rem;
+  transform-origin: center center;
+  user-select: none;
+  pointer-events: none;
+  z-index: 5;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  transition: transform 0.3s ease;
+}
+
+.stuck-emoji:hover {
+  transform: scale(1.2);
+}
