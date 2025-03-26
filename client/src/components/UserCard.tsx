@@ -29,6 +29,8 @@ export function UserCard({
   const shakeAnimationInProgress = useRef(false);
   const isPageVisible = useRef(true);
   const pendingShakeAnimation = useRef(false);
+  // Флаг для отслеживания локальной анимации тряски
+  const localShakeAnimationStarted = useRef(false);
 
   const cardInnerRef = useRef<HTMLDivElement>(null);
   const cardContainerRef = useRef<HTMLDivElement>(null);
@@ -66,7 +68,8 @@ export function UserCard({
         pendingShakeAnimation.current = false;
         const stuckEmojis = cardContainerRef.current?.querySelectorAll('.stuck-emoji');
         if (stuckEmojis?.length) {
-          animateEmojisFalling(stuckEmojis);
+          console.log('[Shake] Page became visible, continuing pending animation');
+          animateEmojisFalling(stuckEmojis, 'random');
         }
       }
     };
@@ -80,8 +83,11 @@ export function UserCard({
   const handleShakeEmojis = useCallback(() => {
     if (!socket || !isCurrentUser || shakeAnimationInProgress.current) return;
     
+    console.log('[Shake] Button clicked - starting local shake animation');
+    
     // Устанавливаем флаг анимации
     shakeAnimationInProgress.current = true;
+    localShakeAnimationStarted.current = true;
     
     // Добавляем тряску карточки
     if (cardContainerRef.current) {
@@ -115,7 +121,15 @@ export function UserCard({
           // Возвращаем карточку в исходное положение
           if (cardContainerRef.current) {
             cardContainerRef.current.style.transform = '';
+            
+            // Запускаем анимацию падения эмодзи со случайной интенсивностью
+            const stuckEmojis = cardContainerRef.current.querySelectorAll('.stuck-emoji');
+            if (stuckEmojis?.length) {
+              console.log('[Shake] Local animation finished, starting emoji fall');
+              animateEmojisFalling(stuckEmojis, 'random');
+            }
           }
+          
           // Сбрасываем флаг анимации после завершения
           shakeAnimationInProgress.current = false;
           // Отправляем событие только после завершения анимации
@@ -129,6 +143,7 @@ export function UserCard({
         if (animationFrameId) {
           cancelAnimationFrame(animationFrameId);
           shakeAnimationInProgress.current = false;
+          localShakeAnimationStarted.current = false;
         }
       };
     }
@@ -139,21 +154,36 @@ export function UserCard({
     if (!socket) return;
 
     const handleShake = (userId: string) => {
+      // Если это не наша карточка или нет контейнера, выходим
       if (userId !== user.id || !cardContainerRef.current) return;
       
+      console.log('[Shake] Received shake event from server');
+      
+      // Если это текущий пользователь, пропускаем анимацию полностью
+      if (isCurrentUser) {
+        console.log('[Shake] Skipping server event - current user');
+        return;
+      }
+
       // Если страница не видна, отмечаем что нужно выполнить анимацию позже
       if (!isPageVisible.current) {
+        console.log('[Shake] Page not visible, queueing animation');
         pendingShakeAnimation.current = true;
         return;
       }
 
       // Если анимация уже идет, пропускаем
-      if (shakeAnimationInProgress.current) return;
+      if (shakeAnimationInProgress.current) {
+        console.log('[Shake] Animation already in progress, skipping');
+        return;
+      }
 
       const stuckEmojis = cardContainerRef.current.querySelectorAll('.stuck-emoji');
       if (stuckEmojis.length > 0) {
+        console.log('[Shake] Starting emoji fall from server event');
         shakeAnimationInProgress.current = true;
-        animateEmojisFalling(stuckEmojis);
+        // Используем случайную интенсивность для кнопки оттряхивания
+        animateEmojisFalling(stuckEmojis, 'random');
         // После завершения анимации падения сбрасываем флаг
         setTimeout(() => {
           shakeAnimationInProgress.current = false;
@@ -180,8 +210,9 @@ export function UserCard({
 
       const stuckEmojis = cardContainerRef.current.querySelectorAll('.stuck-emoji');
       if (stuckEmojis?.length) {
+        console.log('[Shake] Reset event, all emojis will fall');
         shakeAnimationInProgress.current = true;
-        animateEmojisFalling(stuckEmojis);
+        animateEmojisFalling(stuckEmojis, 'all');
         setTimeout(() => {
           shakeAnimationInProgress.current = false;
         }, 1200);
@@ -190,6 +221,7 @@ export function UserCard({
 
     socket.on('emojis:shake', handleShake);
     socket.on('emojis:reset', handleResetEmojis);
+
     return () => {
       socket.off('emojis:shake', handleShake);
       socket.off('emojis:reset', handleResetEmojis);
@@ -275,7 +307,9 @@ export function UserCard({
           if (type === 'reset' && socket) {
             socket.emit('emojis:reset');
           }
-          animateEmojisFalling(stuckEmojis);
+          // При перевороте карты все эмодзи должны упасть
+          console.log('[Shake] Card flip animation, all emojis will fall');
+          animateEmojisFalling(stuckEmojis, 'all');
         }
       }
 

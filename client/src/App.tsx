@@ -83,9 +83,6 @@ function App() {
         case 'throw':
           handleEmojiThrown(animation.data);
           break;
-        case 'shake':
-          handleEmojiShake(animation.data);
-          break;
         case 'fall':
           handleEmojiFall();
           break;
@@ -159,16 +156,9 @@ function App() {
       handleEmojiFall();
     });
 
-    socket.on('emojis:shake', (userId: string, shakeTime: number) => {
-      if (!isPageVisible.current) {
-        pendingAnimations.current.push({
-          type: 'shake',
-          time: shakeTime,
-          data: { userId }
-        });
-        return;
-      }
-      handleEmojiShake({ userId });
+    socket.on('emojis:reset', () => {
+      // Ретранслируем событие всем клиентам
+      socket.emit('emojis:fall');
     });
 
     socket.on('emoji:thrown', (targetId: string, fromId: string, emoji: string, trajectory: any, throwTime: number) => {
@@ -183,11 +173,6 @@ function App() {
       handleEmojiThrown({ targetId, fromId, emoji, trajectory });
     });
 
-    socket.on('emojis:reset', () => {
-      // Ретранслируем событие всем клиентам
-      socket.emit('emojis:fall');
-    });
-
     return () => {
       socket.off('game:state');
       socket.off('user:joined');
@@ -196,7 +181,6 @@ function App() {
       socket.off('force:logout');
       socket.off('emojis:fall');
       socket.off('emojis:reset');
-      socket.off('emojis:shake');
       socket.off('emoji:thrown');
     };
   }, [socket, processPendingAnimations]);
@@ -310,20 +294,11 @@ function App() {
     };
   }, [gameState.users]);
 
-  const handleEmojiShake = useCallback(({ userId }: EmojiShakeData) => {
-    const targetElement = document.querySelector(`[data-user-id="${userId}"]`);
-    if (!targetElement) return;
-
-    const stuckEmojis = targetElement.querySelectorAll('.stuck-emoji');
-    if (stuckEmojis?.length) {
-      animateEmojisFalling(stuckEmojis);
-    }
-  }, []);
-
   const handleEmojiFall = useCallback(() => {
     const stuckEmojis = document.querySelectorAll('.stuck-emoji');
     if (stuckEmojis?.length) {
-      animateEmojisFalling(stuckEmojis);
+      console.log('[Shake] Global fall event, all emojis will fall');
+      animateEmojisFalling(stuckEmojis, 'all');
     }
   }, []);
 

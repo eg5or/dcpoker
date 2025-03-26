@@ -3,9 +3,31 @@ import { AnimationRefs } from './UserCardAnimations';
 import { User } from './UserCardTypes';
 
 // Функция для анимации падения эмодзи
-export const animateEmojisFalling = (emojis: NodeListOf<Element>) => {
+export const animateEmojisFalling = (emojis: NodeListOf<Element>, shakeIntensity?: 'random' | 'all') => {
+  // Конвертируем NodeList в массив для удобства работы
   const emojiArray = Array.from(emojis);
-  const shuffledEmojis = emojiArray.sort(() => Math.random() - 0.5);
+  
+  console.log(`[Shake] Total emojis before filtering: ${emojiArray.length}`);
+  
+  // Перемешиваем массив перед фильтрацией
+  const shuffledArray = emojiArray.sort(() => Math.random() - 0.5);
+  
+  // Если shakeIntensity = 'random', то часть эмодзи может остаться
+  // Если shakeIntensity = 'all' или не указан, все эмодзи отваливаются
+  const shuffledEmojis = shakeIntensity === 'random' 
+    ? shuffledArray.filter(() => {
+        // Базовый шанс 70% + случайный бонус до 25%
+        const baseChance = 0.7;
+        const randomBonus = Math.random() * 0.25;
+        const totalChance = baseChance + randomBonus;
+        const willFall = Math.random() < totalChance;
+        
+        console.log(`[Shake] Emoji fall chance: ${(totalChance * 100).toFixed(1)}%, Will fall: ${willFall}`);
+        return willFall;
+      })
+    : shuffledArray;
+  
+  console.log(`[Shake] Emojis that will fall: ${shuffledEmojis.length}`);
   
   let currentIndex = 0;
   let lastStartTime = 0;
