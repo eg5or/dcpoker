@@ -17,7 +17,7 @@ export function ErrorMessage({ message }: ErrorMessageProps) {
     }
   }, [message]);
 
-  // Автоматически скрываем сообщение об ошибке через 10 секунд
+  // Автоматически скрываем сообщение об ошибке через 5 секунд
   useEffect(() => {
     if (!message) return;
     
@@ -25,7 +25,7 @@ export function ErrorMessage({ message }: ErrorMessageProps) {
       setIsClosing(true);
       // Ждем завершения анимации
       setTimeout(() => setVisible(false), 300);
-    }, 10000);
+    }, 5000); // Уменьшаем время отображения до 5 секунд
     
     return () => clearTimeout(timer);
   }, [message]);

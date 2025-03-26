@@ -132,8 +132,18 @@ class AuthService {
   }
 
   logout(): void {
+    console.log('Выполняется выход из сервиса аутентификации...');
     this.token = null;
     this.user = null;
+    
+    // Гарантированно очищаем localStorage
+    try {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    } catch (err) {
+      console.error('Ошибка при очистке localStorage:', err);
+    }
+    
     this.saveToStorage();
   }
 

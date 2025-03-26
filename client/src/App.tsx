@@ -36,9 +36,9 @@ type EmojiThrowData = {
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(authService.isAuthenticated());
   const [user, setUser] = useState(authService.getUser());
-  const socket = useSocket(isAuthenticated ? authService.getToken() : null);
+  const { socket, connectionFailed } = useSocket(isAuthenticated ? authService.getToken() : null);
   const [isJoined, setIsJoined] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(true);
+  const [isConnecting, setIsConnecting] = useState(isAuthenticated);
   const [error, setError] = useState<string | null>(null);
   const [currentVote, setCurrentVote] = useState<number | null>(null);
   const [gameState, setGameState] = useState<GameState>({
@@ -334,19 +334,45 @@ function App() {
 
   // Автоматическое подключение при наличии аутентификации
   useEffect(() => {
-    if (socket && isAuthenticated && user && !isJoined) {
-      console.log('Автоматическое подключение с именем:', user.name);
-      socket.emit('user:join', user.name);
-      setIsJoined(true);
+    // Если не аутентифицирован, сразу сбрасываем флаг загрузки
+    if (!isAuthenticated) {
       setIsConnecting(false);
-    } else if (socket) {
-      setIsConnecting(false);
+      setError(null); // Сбрасываем ошибку при выходе
+      return;
     }
-  }, [socket, isAuthenticated, user]);
+    
+    // Если есть сокет, значит соединение установлено успешно
+    if (socket) {
+      setIsConnecting(false);
+      setError(null); // Сбрасываем ошибку при успешном подключении
+      
+      // Если соединение установлено и пользователь не присоединился к игре
+      if (isAuthenticated && user && !isJoined) {
+        console.log('Автоматическое подключение с именем:', user.name);
+        socket.emit('user:join', user.name);
+        setIsJoined(true);
+      }
+    } 
+    // Если соединение не удалось, сбрасываем флаг подключения и показываем ошибку
+    else if (connectionFailed && isAuthenticated) {
+      setIsConnecting(false);
+      setError('Не удалось подключиться к серверу. Пожалуйста, перезагрузите страницу или попробуйте позже.');
+    }
+  }, [socket, isAuthenticated, user, connectionFailed, isJoined]);
+
+  // Сбрасываем ошибку при изменении состояния сокета
+  useEffect(() => {
+    if (socket) {
+      console.log('Сокет доступен, сбрасываем ошибку');
+      setError(null);
+    }
+  }, [socket]);
 
   const handleLogin = async (email: string, password: string) => {
     try {
       setError(null);
+      // Сбрасываем флаг соединения при входе
+      setIsConnecting(true);
       const userData = await authService.login(email, password);
       setIsAuthenticated(true);
       setUser(userData);
@@ -362,6 +388,8 @@ function App() {
   const handleRegister = async (name: string, email: string, password: string) => {
     try {
       setError(null);
+      // Сбрасываем флаг соединения при регистрации
+      setIsConnecting(true);
       const userData = await authService.register(name, email, password);
       setIsAuthenticated(true);
       setUser(userData);
@@ -418,21 +446,49 @@ function App() {
 
   const logout = () => {
     console.log('Выполняется выход...');
+    // Сначала сбрасываем все состояния на фронтенде
     setError(null);
     setIsJoined(false);
     setGameState({ ...initialGameState });
     setCurrentVote(null);
-    setIsAuthenticated(false); // Сначала меняем состояние аутентификации
+    setIsAuthenticated(false);
     setUser(null);
     
-    // Затем выполняем выход на сервере
+    // Затем очищаем хранилище и токен
     authService.logout();
+    
+    // Перезагружаем страницу только в случае ошибки подключения,
+    // чтобы полностью сбросить состояние сокета
+    if (connectionFailed) {
+      window.location.reload();
+    }
   };
 
   if (isConnecting) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-white text-xl">Подключение к серверу...</div>
+      </div>
+    );
+  }
+
+  // Если подключение не удалось, но пользователь аутентифицирован, показываем сообщение об ошибке и кнопку
+  if (connectionFailed && isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center gap-4">
+        <div className="text-red-500 text-xl">Не удалось подключиться к серверу</div>
+        <button 
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+        >
+          Перезагрузить страницу
+        </button>
+        <button 
+          onClick={logout}
+          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+        >
+          Выйти
+        </button>
       </div>
     );
   }

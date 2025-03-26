@@ -3,7 +3,16 @@ import { io, Socket } from 'socket.io-client';
 
 const useSocket = (token: string | null = null) => {
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [connectionFailed, setConnectionFailed] = useState(false);
   const socketRef = useRef<Socket | null>(null);
+  const connectionTimeoutRef = useRef<number | null>(null);
+  
+  // Сбрасываем флаг ошибки, если токен изменился
+  useEffect(() => {
+    if (token) {
+      setConnectionFailed(false);
+    }
+  }, [token]);
   
   useEffect(() => {
     // Функция для закрытия сокета
@@ -15,6 +24,12 @@ const useSocket = (token: string | null = null) => {
         socketRef.current.disconnect();
         socketRef.current = null;
       }
+      
+      // Очищаем таймаут, если он был установлен
+      if (connectionTimeoutRef.current) {
+        window.clearTimeout(connectionTimeoutRef.current);
+        connectionTimeoutRef.current = null;
+      }
     };
     
     // Закрываем предыдущий сокет при изменении токена
@@ -24,10 +39,20 @@ const useSocket = (token: string | null = null) => {
     if (!token) {
       console.log('Токен отсутствует, соединение не создается');
       setSocket(null);
+      // Устанавливаем флаг соединения "неудачно", только если соединение не было установлено ранее
+      if (!socketRef.current) {
+        setConnectionFailed(true);
+      }
       return closeSocket;
     }
     
     console.log('Создание нового соединения с токеном');
+    
+    // Устанавливаем таймаут для сброса состояния подключения, если не удалось подключиться
+    connectionTimeoutRef.current = window.setTimeout(() => {
+      console.log('Превышено время ожидания подключения');
+      setConnectionFailed(true);
+    }, 5000); // 5 секунд на подключение
     
     // Настройки для сокета
     const options = {
@@ -35,8 +60,8 @@ const useSocket = (token: string | null = null) => {
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
-      timeout: 10000,
-      transports: ['websocket']
+      timeout: 5000,
+      transports: ['websocket', 'polling'] // Добавляем fallback на polling
     };
     
     // Определяем URL сервера
@@ -51,6 +76,13 @@ const useSocket = (token: string | null = null) => {
     // Добавляем обработчики событий
     newSocket.on('connect', () => {
       console.log('Соединение установлено, ID:', newSocket.id);
+      // Очищаем таймаут при успешном подключении
+      if (connectionTimeoutRef.current) {
+        window.clearTimeout(connectionTimeoutRef.current);
+        connectionTimeoutRef.current = null;
+      }
+      console.log('Сбрасываем флаг ошибки подключения при успешном соединении');
+      setConnectionFailed(false);
       setSocket(newSocket);
     });
     
@@ -64,13 +96,24 @@ const useSocket = (token: string | null = null) => {
     
     newSocket.on('connect_error', (error) => {
       console.error('Ошибка подключения:', error.message);
+      // Устанавливаем флаг после нескольких попыток
+      if (connectionTimeoutRef.current) {
+        window.clearTimeout(connectionTimeoutRef.current);
+        connectionTimeoutRef.current = null;
+      }
+      // Для некоторых типов ошибок сразу устанавливаем флаг неудачного подключения
+      if (error.message.includes('jwt') || error.message.includes('auth')) {
+        console.log('Ошибка аутентификации:', error.message);
+        setConnectionFailed(true);
+      }
     });
     
     // Функция очистки при размонтировании
     return closeSocket;
   }, [token]); // Добавляем token в зависимости
   
-  return socket;
+  // Возвращаем и сокет, и флаг ошибки подключения
+  return { socket, connectionFailed };
 };
 
 export default useSocket;
