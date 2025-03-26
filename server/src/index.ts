@@ -177,15 +177,21 @@ io.on('connection', (socket) => {
   });
 
   socket.on('game:reset', () => {
-    gameState.users.forEach(user => {
-      user.vote = null;
-      user.changedVoteAfterReveal = false;
-      user.emojiAttacks = {};
-    });
-    gameState.isRevealed = false;
-    gameState.averageVote = null;
-    gameState.usersChangedVoteAfterReveal = [];
-    io.emit('game:state', gameState);
+    // Сначала отправляем сигнал для анимации падения эмодзи
+    io.emit('emojis:fall');
+    
+    // После небольшой задержки сбрасываем состояние игры
+    setTimeout(() => {
+      gameState.users.forEach(user => {
+        user.vote = null;
+        user.changedVoteAfterReveal = false;
+        user.emojiAttacks = {};
+      });
+      gameState.isRevealed = false;
+      gameState.averageVote = null;
+      gameState.usersChangedVoteAfterReveal = [];
+      io.emit('game:state', gameState);
+    }, 1000); // Даем время для анимации падения
   });
 
   socket.on('users:reset', () => {

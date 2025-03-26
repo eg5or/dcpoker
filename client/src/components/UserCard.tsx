@@ -396,7 +396,12 @@ export function UserCard({
     };
   }, []);
 
-  // Эффект для отслеживания изменений состояния вскрытия и голоса
+  // Отдельный эффект для обновления prevRevealState
+  useEffect(() => {
+    setPrevRevealState(isRevealed);
+  }, [isRevealed]);
+
+  // Эффект для анимации
   useEffect(() => {
     // Если анимация уже идет, не запускаем новую
     if (isFlipping) return;
@@ -414,25 +419,82 @@ export function UserCard({
     }
     // Если карты только что вскрыли
     else if (!prevRevealState && isRevealed) {
-      // Переворачиваем только если есть голос
-      if (hasVoted) {
-        startFlipAnimation('reveal');
+      // Анимируем падение эмодзи перед переворотом карточки
+      if (cardContainerRef.current) {
+        const stuckEmojis = cardContainerRef.current.querySelectorAll('.stuck-emoji');
+        stuckEmojis.forEach((emoji, index) => {
+          // Сохраняем текущий угол поворота
+          const currentTransform = window.getComputedStyle(emoji).transform;
+          const currentRotation = currentTransform.includes('rotate') 
+            ? parseFloat(currentTransform.split('rotate(')[1]) 
+            : 0;
+          
+          // Устанавливаем начальный угол для анимации
+          (emoji as HTMLElement).style.setProperty('--initial-rotation', `${currentRotation}deg`);
+          
+          // Добавляем небольшую задержку для каждого следующего эмодзи
+          setTimeout(() => {
+            emoji.classList.add('falling');
+          }, index * 50);
+          
+          // Удаляем эмодзи после завершения анимации
+          emoji.addEventListener('animationend', () => {
+            emoji.remove();
+          }, { once: true });
+        });
+        
+        // Даем время для начала анимации падения перед переворотом
+        setTimeout(() => {
+          // Переворачиваем только если есть голос
+          if (hasVoted) {
+            startFlipAnimation('reveal');
+          }
+        }, 100);
       }
     }
     // Если карты сбросили 
-    else if (prevRevealState && !isRevealed && hasVoted) {
-      // При сбросе переворачиваем только карты, которые были с голосом
-      startFlipAnimation('reset');
-      
-      // Очищаем прилипшие эмодзи
+    else if (prevRevealState && !isRevealed) {
+      // Анимируем падение эмодзи перед переворотом карточки
       if (cardContainerRef.current) {
         const stuckEmojis = cardContainerRef.current.querySelectorAll('.stuck-emoji');
-        stuckEmojis.forEach(emoji => emoji.remove());
+        if (stuckEmojis.length > 0) {
+          stuckEmojis.forEach((emoji, index) => {
+            // Сохраняем текущий угол поворота
+            const currentTransform = window.getComputedStyle(emoji).transform;
+            const currentRotation = currentTransform.includes('rotate') 
+              ? parseFloat(currentTransform.split('rotate(')[1]) 
+              : 0;
+            
+            // Устанавливаем начальный угол для анимации
+            (emoji as HTMLElement).style.setProperty('--initial-rotation', `${currentRotation}deg`);
+            
+            // Добавляем небольшую задержку для каждого следующего эмодзи
+            setTimeout(() => {
+              emoji.classList.add('falling');
+            }, index * 50);
+            
+            // Удаляем эмодзи после завершения анимации
+            emoji.addEventListener('animationend', () => {
+              emoji.remove();
+            }, { once: true });
+          });
+          
+          // Даем время для начала анимации падения перед переворотом
+          setTimeout(() => {
+            if (hasVoted) {
+              startFlipAnimation('reset');
+            }
+          }, 100);
+        } else {
+          // Если нет эмодзи, просто переворачиваем карточку
+          if (hasVoted) {
+            startFlipAnimation('reset');
+          }
+        }
       }
     }
 
-    // Сохраняем текущее состояние для следующего сравнения
-    setPrevRevealState(isRevealed);
+    // Сохраняем текущее состояние голоса для следующего сравнения
     setPrevVoteState(user.vote);
   }, [isRevealed, user.vote, prevRevealState, prevVoteState, isCurrentUser, isFlipping, user.isOnline, hasVoted, onVoteAfterReveal]);
 

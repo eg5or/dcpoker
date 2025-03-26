@@ -184,3 +184,19 @@
 .stuck-emoji:hover {
   transform: scale(1.2);
 }
+
+@keyframes emoji-fall {
+  0% {
+    transform: translateY(0) rotate(var(--initial-rotation));
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(1000px) rotate(calc(var(--initial-rotation) + 360deg));
+    opacity: 0;
+  }
+}
+
+.stuck-emoji.falling {
+  animation: emoji-fall 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+  animation-fill-mode: forwards;
+}

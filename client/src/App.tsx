@@ -68,6 +68,24 @@ function App() {
       setCurrentVote(null);
     });
 
+    socket.on('emojis:fall', () => {
+      // Анимируем падение всех эмодзи
+      document.querySelectorAll('.stuck-emoji').forEach(emoji => {
+        // Добавляем анимацию падения
+        (emoji as HTMLElement).style.setProperty('--initial-rotation', 
+          window.getComputedStyle(emoji).transform.includes('rotate') 
+            ? window.getComputedStyle(emoji).transform.split('rotate(')[1].split(')')[0] + 'deg'
+            : '0deg'
+        );
+        emoji.classList.add('falling');
+        
+        // Удаляем эмодзи после завершения анимации
+        emoji.addEventListener('animationend', () => {
+          emoji.remove();
+        }, { once: true });
+      });
+    });
+
     socket.on('emoji:thrown', (targetId: string, fromId: string, emoji: string, trajectory: { startX: number; startY: number }) => {
       console.log('Received emoji:thrown event:', { targetId, fromId, emoji, trajectory });
       const targetElement = document.querySelector(`[data-user-id="${targetId}"]`);
@@ -180,6 +198,7 @@ function App() {
       socket.off('connect_error');
       socket.off('disconnect');
       socket.off('force:logout');
+      socket.off('emojis:fall');
       socket.off('emoji:thrown');
     };
   }, [socket]);
