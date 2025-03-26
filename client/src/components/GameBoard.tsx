@@ -22,6 +22,7 @@ interface GameBoardProps {
   onRecalculateAverage: () => void;
   onThrowEmoji: (targetId: string, emoji: string) => void;
   sequence: number[];
+  onLogout: () => void;
 }
 
 export function GameBoard({
@@ -35,12 +36,14 @@ export function GameBoard({
   onResetUsers,
   onRecalculateAverage,
   onThrowEmoji,
-  sequence
+  sequence,
+  onLogout
 }: GameBoardProps) {
   const [selectedEmoji, setSelectedEmoji] = useState<string>(AVAILABLE_EMOJIS[0]);
   const [_, setPrevGameState] = useState<GameState>(gameState);
   const [confirmRevealDialogOpen, setConfirmRevealDialogOpen] = useState(false);
   const [confirmResetUsersDialogOpen, setConfirmResetUsersDialogOpen] = useState(false);
+  const [confirmLogoutDialogOpen, setConfirmLogoutDialogOpen] = useState(false);
   const [easterEggState, setEasterEggState] = useState<'tilt' | 'fall' | 'shatter' | 'reset' | undefined>(undefined);
 
   // Сохраняем предыдущее состояние игры для анимации
@@ -91,17 +94,30 @@ export function GameBoard({
     }
   };
 
+  // Обработчик для кнопки выхода из аккаунта
+  const handleLogoutRequest = () => {
+    setConfirmLogoutDialogOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 p-4 sm:p-6 md:p-8">
       <ErrorMessage message={error} />
       
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-          <GameControls
-            onReveal={handleRevealRequest}
-            onReset={handleReset}
-            onResetUsers={handleResetUsersRequest}
-          />
+          <div className="flex items-center justify-between w-full">
+            <GameControls
+              onReveal={handleRevealRequest}
+              onReset={handleReset}
+              onResetUsers={handleResetUsersRequest}
+            />
+            <button 
+              onClick={handleLogoutRequest}
+              className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
+            >
+              Выйти
+            </button>
+          </div>
           <div className="flex items-center bg-gray-800 p-2 rounded-lg w-full sm:w-auto">
             <p className="text-white mr-3 text-sm whitespace-nowrap">Выберите эмодзи:</p>
             <EmojiSelector 
@@ -183,6 +199,19 @@ export function GameBoard({
             onResetUsers();
           }}
           onCancel={() => setConfirmResetUsersDialogOpen(false)}
+        />
+        
+        {/* Диалоговое окно подтверждения выхода из аккаунта */}
+        <ConfirmDialog
+          isOpen={confirmLogoutDialogOpen}
+          message="Вы уверены, что хотите выйти из аккаунта?"
+          confirmLabel="Выйти"
+          cancelLabel="Отмена"
+          onConfirm={() => {
+            setConfirmLogoutDialogOpen(false);
+            onLogout();
+          }}
+          onCancel={() => setConfirmLogoutDialogOpen(false)}
         />
       </div>
     </div>

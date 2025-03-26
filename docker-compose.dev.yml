@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  server:
+    container_name: dcpoker-server
+    build:
+      context: ./server
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - CORS_ORIGINS=http://localhost:5173,http://localhost,http://127.0.0.1:5173
+      - MONGODB_URI=mongodb://mongodb:27017/dcpoker
+      - JWT_SECRET=${JWT_SECRET:-supersecret_jwt_key_change_in_production}
+      - JWT_EXPIRES_IN=7d
+      - PING_TIMEOUT=10000
+      - PING_INTERVAL=5000
+    volumes:
+      - ./server/src:/app/src
+      - ./server/package.json:/app/package.json
+      - ./server/tsconfig.json:/app/tsconfig.json
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+    networks:
+      - dcpoker-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  mongodb:
+    container_name: dcpoker-mongodb
+    image: mongo:latest
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=dcpoker
+    command: ["--bind_ip", "0.0.0.0"]
+    networks:
+      - dcpoker-network
+
+volumes:
+  mongo_data:
+    name: dcpoker_mongodb_data
+
+networks:
+  dcpoker-network:
+    name: dcpoker-network 

@@ -1,10 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AuthPage } from './components/auth/AuthPage';
 import { GameBoard } from './components/GameBoard';
-import { LoginForm } from './components/LoginForm';
 import { animateEmojisFalling } from './components/UserCardEffects';
-import { useSocket } from './hooks/useSocket';
+import useSocket from './hooks/useSocket';
+import { authService } from './services/auth.service';
 import type { GameState } from './types';
 import { FIBONACCI_SEQUENCE } from './types';
+
+// Начальное состояние игры
+const initialGameState: GameState = {
+  users: [],
+  isRevealed: false,
+  averageVote: null,
+  usersChangedVoteAfterReveal: [],
+  consistency: null
+};
 
 type EmojiThrowData = {
   targetId: string;
@@ -24,8 +34,9 @@ type EmojiThrowData = {
 };
 
 function App() {
-  const socket = useSocket();
-  const [name, setName] = useState<string>(() => localStorage.getItem('userName') || '');
+  const [isAuthenticated, setIsAuthenticated] = useState(authService.isAuthenticated());
+  const [user, setUser] = useState(authService.getUser());
+  const socket = useSocket(isAuthenticated ? authService.getToken() : null);
   const [isJoined, setIsJoined] = useState(false);
   const [isConnecting, setIsConnecting] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -162,6 +173,32 @@ function App() {
     }
   }, []);
 
+  // Обработчик для сокет-события падения эмодзи
+  const handleEmojisfall = useCallback((fallTime: number) => {
+    if (!isPageVisible.current) {
+      pendingAnimations.current.push({
+        type: 'fall',
+        time: fallTime,
+        data: null
+      });
+      return;
+    }
+    handleEmojiFall();
+  }, [handleEmojiFall]);
+
+  // Обработчик для сокет-события брошенного эмодзи
+  const handleSocketEmojiThrown = useCallback((targetId: string, fromId: string, emoji: string, trajectory: any, throwTime: number, placement: { x: number, y: number, rotation: number }) => {
+    if (!isPageVisible.current) {
+      pendingAnimations.current.push({
+        type: 'throw',
+        time: throwTime,
+        data: { targetId, fromId, emoji, trajectory, placement }
+      });
+      return;
+    }
+    handleEmojiThrown({ targetId, fromId, emoji, trajectory, placement });
+  }, [handleEmojiThrown]);
+
   // Функция для обработки отложенных анимаций
   const processPendingAnimations = useCallback(() => {
     if (!isPageVisible.current || pendingAnimations.current.length === 0) return;
@@ -230,7 +267,8 @@ function App() {
   useEffect(() => {
     if (!socket) return;
 
-    socket.on('game:state', (state: GameState & { resetTime?: number }) => {
+    // Обработчик обновления состояния игры
+    const handleGameState = (state: GameState & { resetTime?: number }) => {
       console.log('Получено обновление состояния:', state);
       if (state.resetTime) {
         lastResetTime.current = state.resetTime;
@@ -241,95 +279,99 @@ function App() {
       if (currentUser) {
         setCurrentVote(currentUser.vote);
       }
-    });
-
-    socket.on('user:joined', (user) => {
-      console.log('Пользователь присоединился:', user);
-    });
-
-    socket.on('connect_error', () => {
-      setError('Ошибка подключения к серверу');
-      setIsConnecting(false);
-    });
-
-    socket.on('disconnect', () => {
-      setError('Соединение с сервером потеряно');
-      setIsJoined(false);
-    });
-
-    socket.on('force:logout', () => {
-      localStorage.removeItem('userName');
-      setName('');
-      setIsJoined(false);
-      setCurrentVote(null);
-    });
-
-    socket.on('emojis:fall', (fallTime: number) => {
-      if (!isPageVisible.current) {
-        pendingAnimations.current.push({
-          type: 'fall',
-          time: fallTime,
-          data: null
-        });
-        return;
-      }
-      handleEmojiFall();
-    });
-
-    socket.on('emojis:reset', () => {
-      // Ретранслируем событие всем клиентам
-      socket.emit('emojis:fall');
-    });
-
-    socket.on('emoji:thrown', (targetId: string, fromId: string, emoji: string, trajectory: any, throwTime: number, placement: { x: number, y: number, rotation: number }) => {
-      if (!isPageVisible.current) {
-        pendingAnimations.current.push({
-          type: 'throw',
-          time: throwTime,
-          data: { targetId, fromId, emoji, trajectory, placement }
-        });
-        return;
-      }
-      handleEmojiThrown({ targetId, fromId, emoji, trajectory, placement });
-    });
-
-    return () => {
-      socket.off('game:state');
-      socket.off('user:joined');
-      socket.off('connect_error');
-      socket.off('disconnect');
-      socket.off('force:logout');
-      socket.off('emojis:fall');
-      socket.off('emojis:reset');
-      socket.off('emoji:thrown');
     };
-  }, [socket, processPendingAnimations]);
 
-  // Автоматическое подключение при наличии имени в localStorage
+    // Обработчики событий подключения/отключения
+    const handleConnectError = (error: Error) => {
+      console.error('Ошибка подключения:', error);
+      // Показываем ошибку только если пользователь аутентифицирован
+      if (isAuthenticated) {
+        setError('Ошибка подключения к серверу');
+      }
+      setIsConnecting(false);
+    };
+
+    const handleDisconnect = (reason: string) => {
+      console.log('Отключение от сервера, причина:', reason);
+      
+      // Если отключение связано с выходом пользователя или переходом на страницу логина, не показываем ошибку
+      if (!isAuthenticated) {
+        setError(null);
+      } else {
+        setError('Соединение с сервером потеряно');
+        setIsJoined(false);
+      }
+    };
+
+    // Обработчик принудительного выхода
+    const handleForceLogout = () => {
+      console.log('Получена команда выхода от сервера');
+      logout();
+    };
+
+    // Регистрируем обработчики событий
+    socket.on('game:state', handleGameState);
+    socket.on('user:joined', (user: { id: string; name: string }) => console.log('Пользователь присоединился:', user));
+    socket.on('connect_error', handleConnectError);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('force:logout', handleForceLogout);
+    socket.on('emojis:fall', handleEmojisfall);
+    socket.on('emojis:reset', () => socket.emit('emojis:fall'));
+    socket.on('emoji:thrown', handleSocketEmojiThrown);
+
+    // Отписываемся от событий при размонтировании или изменении сокета
+    return () => {
+      socket.off('game:state', handleGameState);
+      socket.off('user:joined');
+      socket.off('connect_error', handleConnectError);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('force:logout', handleForceLogout);
+      socket.off('emojis:fall', handleEmojisfall);
+      socket.off('emojis:reset');
+      socket.off('emoji:thrown', handleSocketEmojiThrown);
+    };
+  }, [socket, isAuthenticated, handleEmojisfall, handleSocketEmojiThrown]);
+
+  // Автоматическое подключение при наличии аутентификации
   useEffect(() => {
-    const savedName = localStorage.getItem('userName');
-    if (socket && savedName && !isJoined) {
-      console.log('Автоматическое подключение с именем:', savedName);
-      socket.emit('user:join', savedName);
+    if (socket && isAuthenticated && user && !isJoined) {
+      console.log('Автоматическое подключение с именем:', user.name);
+      socket.emit('user:join', user.name);
       setIsJoined(true);
       setIsConnecting(false);
     } else if (socket) {
       setIsConnecting(false);
     }
-  }, [socket]);
+  }, [socket, isAuthenticated, user]);
 
-  const handleJoin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!socket || !name.trim()) {
-      setError('Невозможно подключиться к серверу');
-      return;
+  const handleLogin = async (email: string, password: string) => {
+    try {
+      setError(null);
+      const userData = await authService.login(email, password);
+      setIsAuthenticated(true);
+      setUser(userData);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Неизвестная ошибка при входе');
+      }
     }
+  };
 
-    console.log('Попытка присоединиться с именем:', name);
-    localStorage.setItem('userName', name);
-    socket.emit('user:join', name);
-    setIsJoined(true);
-    setError(null);
+  const handleRegister = async (name: string, email: string, password: string) => {
+    try {
+      setError(null);
+      const userData = await authService.register(name, email, password);
+      setIsAuthenticated(true);
+      setUser(userData);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Неизвестная ошибка при регистрации');
+      }
+    }
   };
 
   const handleVote = (value: number) => {
@@ -374,6 +416,19 @@ function App() {
     });
   };
 
+  const logout = () => {
+    console.log('Выполняется выход...');
+    setError(null);
+    setIsJoined(false);
+    setGameState({ ...initialGameState });
+    setCurrentVote(null);
+    setIsAuthenticated(false); // Сначала меняем состояние аутентификации
+    setUser(null);
+    
+    // Затем выполняем выход на сервере
+    authService.logout();
+  };
+
   if (isConnecting) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -382,15 +437,27 @@ function App() {
     );
   }
 
-  if (!isJoined) {
+  if (!isAuthenticated) {
     return (
-      <LoginForm
-        name={name}
-        setName={setName}
+      <AuthPage
+        onLogin={handleLogin}
+        onRegister={handleRegister}
         error={error}
-        socket={socket}
-        onJoin={handleJoin}
       />
+    );
+  }
+
+  if (!isJoined) {
+    // Автоматически присоединяемся к игре с именем из профиля
+    if (user && socket) {
+      socket.emit('user:join', user.name);
+      setIsJoined(true);
+    }
+    
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-white text-xl">Присоединение к игре...</div>
+      </div>
     );
   }
 
@@ -407,6 +474,7 @@ function App() {
       onRecalculateAverage={handleRecalculateAverage}
       onThrowEmoji={handleThrowEmoji}
       sequence={FIBONACCI_SEQUENCE}
+      onLogout={logout}
     />
   );
 }

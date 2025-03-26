@@ -8,6 +8,9 @@ services:
       dockerfile: Dockerfile
     ports:
       - "80:80"
+      - "443:443"  # Для HTTPS
+    volumes:
+      - ./ssl:/etc/nginx/ssl  # Для SSL-сертификатов
     depends_on:
       - server
     restart: unless-stopped
@@ -21,11 +24,11 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
-    # Публикуем порт 3001 для отладки API
-    ports:
-      - "3001:3001"
+    # Не публикуем порт 3001 наружу, доступ только через Nginx
+    # ports:
+    #  - "3001:3001"
     environment:
-      - NODE_ENV=development  # меняем на development для отладки
+      - NODE_ENV=production
       - PORT=3001
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost,http://eg5or.ru,https://eg5or.ru}
       - MONGODB_URI=mongodb://mongodb:27017/dcpoker
@@ -44,6 +47,7 @@ services:
     restart: unless-stopped
     volumes:
       - mongo_data:/data/db
+      - mongo_config:/data/configdb  # Для конфигурации MongoDB
     # Не публикуем порт MongoDB наружу для безопасности
     # ports:
     #  - "27017:27017"
@@ -55,8 +59,9 @@ services:
 
 volumes:
   mongo_data:
-    # Используем именованный том для обеспечения сохранности данных
     name: dcpoker_mongodb_data
+  mongo_config:
+    name: dcpoker_mongodb_config
     
 networks:
   dcpoker-network:

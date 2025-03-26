@@ -1,16 +1,37 @@
+import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
 import { createServer } from 'http';
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
+import { connectDB } from './config/db';
+import { verifyToken } from './config/jwt';
+import { User } from './models/user.model';
+import authRoutes from './routes/auth.routes';
 
 // Загружаем переменные окружения
 dotenv.config();
+
+// Подключаемся к базе данных
+connectDB();
 
 const app = express();
 const httpServer = createServer(app);
 
 // Получаем origins из env и преобразуем в массив
 const corsOrigins = process.env.CORS_ORIGINS?.split(',') || ["http://localhost:5173"];
+
+// Настройка middleware для Express
+app.use(cors({
+  origin: corsOrigins,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Подключаем маршруты аутентификации
+app.use('/api/auth', authRoutes);
 
 const io = new Server(httpServer, {
   cors: {
@@ -22,6 +43,42 @@ const io = new Server(httpServer, {
   transports: ['websocket', 'polling'],
   pingTimeout: parseInt(process.env.PING_TIMEOUT || '10000'),
   pingInterval: parseInt(process.env.PING_INTERVAL || '5000')
+});
+
+// Определяем интерфейс для сокета с пользовательскими данными
+interface AuthenticatedSocket extends Socket {
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+}
+
+// Обновляем использование io.use с правильным типом
+io.use(async (socket: AuthenticatedSocket, next) => {
+  const token = socket.handshake.auth.token;
+  
+  if (!token) {
+    return next();
+  }
+  
+  const decoded = verifyToken(token);
+  if (decoded) {
+    try {
+      const user = await User.findById(decoded.id);
+      if (user) {
+        socket.user = {
+          id: user._id?.toString() || decoded.id,
+          name: user.name as string,
+          email: user.email as string
+        };
+      }
+    } catch (error) {
+      console.error('Ошибка при проверке пользователя:', error);
+    }
+  }
+  
+  next();
 });
 
 type User = {

@@ -1,0 +1,19 @@
+FROM node:18-alpine
+
+# Установка зависимостей для сборки
+RUN apk add --no-cache python3 make g++
+
+WORKDIR /app
+
+# Копируем файлы зависимостей
+COPY package*.json ./
+
+# Устанавливаем все зависимости внутри контейнера
+RUN npm install --force
+RUN npm rebuild esbuild
+
+# Экспонируем порт
+EXPOSE 3001
+
+# Запускаем в режиме разработки с автоматической перезагрузкой
+CMD ["npm", "run", "dev"] 
