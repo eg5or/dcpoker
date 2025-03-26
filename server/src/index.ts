@@ -208,7 +208,6 @@ io.on('connection', (socket) => {
       const user = gameState.users.find(u => u.id === userId);
       if (user) {
         user.lastShakeTime = shakeTime;
-        user.emojiAttacks = {}; // Очищаем эмодзи при оттряхивании
         io.emit('emojis:shake', userId, shakeTime);
         io.emit('game:state', gameState); // Отправляем обновленное состояние
       }
