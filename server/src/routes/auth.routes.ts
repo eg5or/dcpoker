@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getMe, login, register } from '../controllers/auth.controller';
-import { authMiddleware } from '../middlewares/auth.middleware';
+import { authMiddleware } from '../middleware/auth.middleware';
 
 const router = Router();
 

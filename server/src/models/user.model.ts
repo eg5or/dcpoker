@@ -1,60 +1,88 @@
 import bcrypt from 'bcrypt';
-import mongoose from 'mongoose';
+import mongoose, { Document, Schema } from 'mongoose';
 
-export interface IUser extends mongoose.Document {
-  name: string;
+// Интерфейс для документа пользователя
+export interface UserDocument extends Document {
+  username: string;
   email: string;
   password: string;
+  role: 'user' | 'admin';
+  isActive: boolean;
+  lastLoginAt: Date;
+  lastActivityAt: Date;
   createdAt: Date;
-  updatedAt: Date;
-  gamesPlayed: number;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
-const UserSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  email: {
-    type: String,
-    required: true,
+// Схема для пользователя
+const UserSchema = new Schema<UserDocument>({
+  username: { 
+    type: String, 
+    required: true, 
     unique: true,
     trim: true,
-    lowercase: true
+    minlength: 3,
+    maxlength: 30
   },
-  password: {
-    type: String,
-    required: true
+  email: { 
+    type: String, 
+    required: true, 
+    unique: true, 
+    trim: true,
+    lowercase: true,
+    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Пожалуйста, введите корректный email']
   },
-  gamesPlayed: {
-    type: Number,
-    default: 0
+  password: { 
+    type: String, 
+    required: true 
+  },
+  role: { 
+    type: String, 
+    enum: ['user', 'admin'], 
+    default: 'user' 
+  },
+  isActive: { 
+    type: Boolean, 
+    default: true 
+  },
+  lastLoginAt: { 
+    type: Date, 
+    default: null 
+  },
+  lastActivityAt: { 
+    type: Date, 
+    default: Date.now 
+  },
+  createdAt: { 
+    type: Date, 
+    default: Date.now 
   }
-}, { 
-  timestamps: true 
 });
 
-// Хэширование пароля перед сохранением
+// Метод для сравнения пароля с хешем
+UserSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
+  return bcrypt.compare(candidatePassword, this.password);
+};
+
+// Хук для хеширования пароля перед сохранением
 UserSchema.pre('save', async function(next) {
-  const user = this as IUser;
-  
-  // Хэшируем пароль только если он изменился или новый
-  if (!user.isModified('password')) return next();
+  if (!this.isModified('password')) {
+    return next();
+  }
   
   try {
     const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(user.password, salt);
+    this.password = await bcrypt.hash(this.password, salt);
     next();
   } catch (error) {
     next(error as Error);
   }
 });
 
-// Метод для проверки пароля
-UserSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
-  return bcrypt.compare(candidatePassword, this.password);
-};
+// Индексы для оптимизации запросов
+UserSchema.index({ username: 1 });
+UserSchema.index({ email: 1 });
+UserSchema.index({ lastActivityAt: -1 });
 
-export const User = mongoose.model<IUser>('User', UserSchema); 
+// Создание модели
+export const User = mongoose.model<UserDocument>('User', UserSchema); 
