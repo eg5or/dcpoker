@@ -34,7 +34,6 @@ function App() {
     consistency: null
   });
   const isPageVisible = useRef(true);
-  const pendingFallAnimation = useRef(false);
   const lastResetTime = useRef<number>(0);
   const pendingAnimations = useRef<Array<{
     type: 'throw' | 'shake' | 'fall';
@@ -202,7 +201,7 @@ function App() {
   }, [socket, processPendingAnimations]);
 
   // Выделяем функции обработки анимаций
-  const handleEmojiThrown = useCallback(({ targetId, fromId, emoji, trajectory }: EmojiThrowData) => {
+  const handleEmojiThrown = useCallback(({ targetId, emoji, trajectory }: EmojiThrowData) => {
     // Проверяем, не было ли оттряхивания после броска
     const targetUser = gameState.users.find(u => u.id === targetId);
     if (targetUser?.lastShakeTime && targetUser.lastShakeTime > Date.now()) {
