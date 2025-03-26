@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface User {
   id: string;
@@ -20,6 +20,7 @@ interface UserCardProps {
   selectedEmoji: string;
   easterEggState?: 'tilt' | 'fall' | 'shatter' | 'reset';
   onVoteAfterReveal?: () => void;
+  socket?: any;
 }
 
 // Функция для форматирования относительного времени
@@ -73,7 +74,8 @@ export function UserCard({
   currentUserId, 
   onThrowEmoji, 
   easterEggState,
-  onVoteAfterReveal
+  onVoteAfterReveal,
+  socket
 }: UserCardProps) {
   const isCurrentUser = user.id === currentUserId;
   const [isFlipping, setIsFlipping] = useState(false);
@@ -109,6 +111,54 @@ export function UserCard({
   
   // Отображаемое значение голоса - для перевернутой карточки
   const voteDisplay = user.vote === 0.1 ? '☕️' : user.vote === 0.5 ? '½' : user.vote;
+
+  // Проверяем, есть ли прилипшие эмодзи
+  const hasStuckEmojis = useCallback(() => {
+    return Object.values(user.emojiAttacks || {}).some(count => count > 0);
+  }, [user.emojiAttacks]);
+
+  // Обработчик оттряхивания эмодзи
+  const handleShakeEmojis = useCallback(() => {
+    if (!socket || !isCurrentUser) return;
+    socket.emit('emojis:shake', user.id);
+  }, [socket, isCurrentUser, user.id]);
+
+  // Обработчик события оттряхивания
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleShake = (userId: string) => {
+      if (userId !== user.id || !cardContainerRef.current) return;
+
+      const stuckEmojis = cardContainerRef.current.querySelectorAll('.stuck-emoji');
+      stuckEmojis.forEach((emoji, index) => {
+        // Сохраняем текущий угол поворота
+        const currentTransform = window.getComputedStyle(emoji).transform;
+        const currentRotation = currentTransform.includes('rotate') 
+          ? parseFloat(currentTransform.split('rotate(')[1]) 
+          : 0;
+        
+        // Устанавливаем начальный угол для анимации
+        (emoji as HTMLElement).style.setProperty('--initial-rotation', `${currentRotation}deg`);
+        
+        // Добавляем небольшую задержку для каждого следующего эмодзи
+        setTimeout(() => {
+          emoji.classList.add('falling');
+        }, index * 50);
+        
+        // Удаляем эмодзи после завершения анимации
+        emoji.addEventListener('animationend', () => {
+          emoji.remove();
+        }, { once: true });
+      });
+    };
+
+    socket.on('emojis:shake', handleShake);
+
+    return () => {
+      socket.off('emojis:shake', handleShake);
+    };
+  }, [socket, user.id]);
 
   // Эффект разлетающихся осколков
   const createShards = (cardRect: DOMRect) => {
@@ -637,6 +687,23 @@ export function UserCard({
         }
       }}
     >
+      {/* Кнопка оттряхивания эмодзи */}
+      {isCurrentUser && hasStuckEmojis() && (
+        <button 
+          className="shake-button"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleShakeEmojis();
+          }}
+          aria-label="Оттряхнуть эмодзи"
+        >
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+          </svg>
+          <span className="shake-button-tooltip">Оттряхнуть эмодзи</span>
+        </button>
+      )}
+
       {/* Бейджики с эмодзи (всегда поверх карточки) */}
       {totalAttacks > 0 && (
         <div className={badgesClass}>

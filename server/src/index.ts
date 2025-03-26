@@ -194,6 +194,13 @@ io.on('connection', (socket) => {
     }, 1000); // Даем время для анимации падения
   });
 
+  socket.on('emojis:shake', (userId: string) => {
+    // Проверяем, что пользователь пытается оттряхнуть свою карточку
+    if (socket.id === userId) {
+      io.emit('emojis:shake', userId);
+    }
+  });
+
   socket.on('users:reset', () => {
     // Очищаем список пользователей
     gameState.users = [];

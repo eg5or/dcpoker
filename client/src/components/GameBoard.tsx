@@ -142,6 +142,7 @@ export function GameBoard({
                 selectedEmoji={selectedEmoji}
                 easterEggState={easterEggState}
                 onVoteAfterReveal={handleVoteAfterReveal}
+                socket={socket}
               />
             ))}
         </div>

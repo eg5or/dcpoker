@@ -41,6 +41,7 @@ export interface ServerEvents {
   'force:logout': () => void;
   'emoji:thrown': (targetUserId: string, fromUserId: string, emoji: string, trajectory: EmojiTrajectory) => void;
   'emojis:fall': () => void;
+  'emojis:shake': (userId: string) => void;
 }
 
 export interface ClientEvents {
@@ -52,6 +53,7 @@ export interface ClientEvents {
   'users:reset': () => void;
   'throw:emoji': (targetUserId: string, emoji: string) => void;
   'emojis:fall': () => void;
+  'emojis:shake': (userId: string) => void;
 }
 
 export const AVAILABLE_EMOJIS = [
