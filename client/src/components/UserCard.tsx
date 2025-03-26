@@ -55,6 +55,45 @@ export function UserCard({
 
   const handleShakeEmojis = useCallback(() => {
     if (!socket || !isCurrentUser) return;
+    
+    // Добавляем тряску карточки
+    if (cardContainerRef.current) {
+      let startTime: number | null = null;
+      const duration = 500; // 0.5 секунды
+      
+      const animateShake = (currentTime: number) => {
+        if (!startTime) startTime = currentTime;
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Функция для плавности
+        const easeOutElastic = (t: number) => {
+          const p = 0.3;
+          return Math.pow(2, -10 * t) * Math.sin((t - p / 4) * (2 * Math.PI) / p) + 1;
+        }
+        
+        // Создаем эффект тряски с затуханием
+        const intensity = (1 - easeOutElastic(progress)) * 5; // Используем easeOutElastic
+        const shakeX = Math.sin(progress * Math.PI * 8) * intensity;
+        const shakeY = Math.cos(progress * Math.PI * 6) * intensity;
+        
+        if (cardContainerRef.current) {
+          cardContainerRef.current.style.transform = `translate(${shakeX}px, ${shakeY}px)`;
+        }
+        
+        if (progress < 1) {
+          requestAnimationFrame(animateShake);
+        } else {
+          // Возвращаем карточку в исходное положение
+          if (cardContainerRef.current) {
+            cardContainerRef.current.style.transform = '';
+          }
+        }
+      };
+      
+      requestAnimationFrame(animateShake);
+    }
+    
     socket.emit('emojis:shake', user.id);
   }, [socket, isCurrentUser, user.id]);
 
