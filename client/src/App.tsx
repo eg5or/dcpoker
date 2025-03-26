@@ -69,21 +69,61 @@ function App() {
     });
 
     socket.on('emojis:fall', () => {
-      // Анимируем падение всех эмодзи
+      // Анимируем падение всех эмодзи через JS
       document.querySelectorAll('.stuck-emoji').forEach(emoji => {
-        // Добавляем анимацию падения
-        (emoji as HTMLElement).style.setProperty('--initial-rotation', 
-          window.getComputedStyle(emoji).transform.includes('rotate') 
-            ? window.getComputedStyle(emoji).transform.split('rotate(')[1].split(')')[0] + 'deg'
-            : '0deg'
-        );
-        emoji.classList.add('falling');
+        const element = emoji as HTMLElement;
+        const rect = element.getBoundingClientRect();
+        const startX = rect.left;
+        const startY = rect.top;
+        const rotation = element.style.transform 
+          ? parseInt(element.style.transform.split('rotate(')[1]) || 0
+          : 0;
         
-        // Удаляем эмодзи после завершения анимации
-        emoji.addEventListener('animationend', () => {
-          emoji.remove();
-        }, { once: true });
+        let startTime: number | null = null;
+        const duration = 1000;
+        const fallDistance = window.innerHeight - startY + 100;
+        
+        const animate = (currentTime: number) => {
+          if (!startTime) startTime = currentTime;
+          const elapsed = currentTime - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          
+          // Функция ускорения падения
+          const fallEase = (t: number) => t < 0.5 
+            ? 2 * t * t 
+            : 1 - Math.pow(-2 * t + 2, 2) / 2;
+          
+          // Добавляем колебание при падении
+          const wobble = Math.sin(progress * Math.PI * 4) * (1 - progress) * 10;
+          
+          const fallProgress = fallEase(progress);
+          const translateY = fallDistance * fallProgress;
+          const translateX = -50 * fallProgress; // Смещение влево при падении
+          const currentRotation = rotation + wobble + (progress * 360); // Доп. вращение при падении
+          
+          element.style.transform = `translate(${translateX}px, ${translateY}px) rotate(${currentRotation}deg)`;
+          
+          // Уменьшаем прозрачность в конце
+          if (progress > 0.7) {
+            element.style.opacity = (1 - ((progress - 0.7) / 0.3)).toString();
+          }
+          
+          if (progress < 1) {
+            requestAnimationFrame(animate);
+          } else {
+            // Удаляем эмодзи после завершения анимации
+            element.remove();
+          }
+        };
+        
+        requestAnimationFrame(animate);
       });
+    });
+
+    // Обработчик сброса эмодзи
+    socket.on('emojis:reset', () => {
+      // Ретранслируем событие всем клиентам
+      socket.emit('emojis:fall');
     });
 
     socket.on('emoji:thrown', (targetId: string, fromId: string, emoji: string, trajectory: { startX: number; startY: number }) => {
@@ -199,6 +239,7 @@ function App() {
       socket.off('disconnect');
       socket.off('force:logout');
       socket.off('emojis:fall');
+      socket.off('emojis:reset');
       socket.off('emoji:thrown');
     };
   }, [socket]);
@@ -235,6 +276,7 @@ function App() {
   const handleReset = () => {
     if (!socket) return;
     socket.emit('game:reset');
+    socket.emit('emojis:fall');
     setCurrentVote(null);
   };
 

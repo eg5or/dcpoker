@@ -125,6 +125,7 @@
   pointer-events: none;
   z-index: 5;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  will-change: transform, opacity;
 }
 
 .shake-button {

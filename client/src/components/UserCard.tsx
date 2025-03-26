@@ -68,8 +68,20 @@ export function UserCard({
       animateEmojisFalling(stuckEmojis);
     };
 
+    const handleResetEmojis = () => {
+      if (!cardContainerRef.current) return;
+      const stuckEmojis = cardContainerRef.current.querySelectorAll('.stuck-emoji');
+      if (stuckEmojis?.length) {
+        animateEmojisFalling(stuckEmojis);
+      }
+    };
+
     socket.on('emojis:shake', handleShake);
-    return () => socket.off('emojis:shake', handleShake);
+    socket.on('emojis:reset', handleResetEmojis);
+    return () => {
+      socket.off('emojis:shake', handleShake);
+      socket.off('emojis:reset', handleResetEmojis);
+    };
   }, [socket, user.id]);
 
   // Обработка пасхалки
@@ -148,6 +160,9 @@ export function UserCard({
       if (cardContainerRef.current) {
         const stuckEmojis = cardContainerRef.current.querySelectorAll('.stuck-emoji');
         if (stuckEmojis?.length) {
+          if (type === 'reset' && socket) {
+            socket.emit('emojis:reset');
+          }
           animateEmojisFalling(stuckEmojis);
         }
       }
