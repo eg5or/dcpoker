@@ -1,27 +1,29 @@
 import dotenv from 'dotenv';
-import jwt from 'jsonwebtoken';
-import { IUser } from '../models/user.model';
+import jwt, { JwtPayload, Secret, SignOptions } from 'jsonwebtoken';
+import { UserDocument } from '../models/user.model';
 
 dotenv.config();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_jwt_key';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+const JWT_SECRET: Secret = process.env.JWT_SECRET || 'supersecret_jwt_key';
+const JWT_EXPIRES_IN = '7d';
 
-export const generateToken = (user: IUser): string => {
+export const generateToken = (user: UserDocument): string => {
+  const options: SignOptions = { expiresIn: JWT_EXPIRES_IN };
+  
   return jwt.sign(
     { 
       id: user._id, 
-      email: user.email,
-      name: user.name 
+      login: user.login,
+      name: user.username 
     },
     JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN }
+    options
   );
 };
 
-export const verifyToken = (token: string): any => {
+export const verifyToken = (token: string): JwtPayload | null => {
   try {
-    return jwt.verify(token, JWT_SECRET);
+    return jwt.verify(token, JWT_SECRET) as JwtPayload;
   } catch (error) {
     return null;
   }

@@ -4,7 +4,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 // Интерфейс для документа пользователя
 export interface UserDocument extends Document {
   username: string;
-  email: string;
+  login: string;
   password: string;
   role: 'user' | 'admin';
   isActive: boolean;
@@ -19,18 +19,17 @@ const UserSchema = new Schema<UserDocument>({
   username: { 
     type: String, 
     required: true, 
-    unique: true,
     trim: true,
     minlength: 3,
     maxlength: 30
   },
-  email: { 
+  login: { 
     type: String, 
     required: true, 
     unique: true, 
     trim: true,
-    lowercase: true,
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Пожалуйста, введите корректный email']
+    minlength: 3,
+    maxlength: 30
   },
   password: { 
     type: String, 
@@ -81,7 +80,7 @@ UserSchema.pre('save', async function(next) {
 
 // Индексы для оптимизации запросов
 UserSchema.index({ username: 1 });
-UserSchema.index({ email: 1 });
+UserSchema.index({ login: 1 });
 UserSchema.index({ lastActivityAt: -1 });
 
 // Создание модели

@@ -368,14 +368,16 @@ function App() {
     }
   }, [socket]);
 
-  const handleLogin = async (email: string, password: string) => {
+  const handleLogin = async (login: string, password: string) => {
     try {
       setError(null);
-      // Сбрасываем флаг соединения при входе
-      setIsConnecting(true);
-      const userData = await authService.login(email, password);
+      // Сбрасываем флаг соединения при входе, но не переходим на экран загрузки сразу
+      // setIsConnecting(true);
+      const userData = await authService.login(login, password);
       setIsAuthenticated(true);
       setUser(userData);
+      // Только после успешной авторизации показываем экран подключения
+      setIsConnecting(true);
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message);
@@ -385,14 +387,16 @@ function App() {
     }
   };
 
-  const handleRegister = async (name: string, email: string, password: string) => {
+  const handleRegister = async (displayName: string, login: string, password: string) => {
     try {
       setError(null);
-      // Сбрасываем флаг соединения при регистрации
-      setIsConnecting(true);
-      const userData = await authService.register(name, email, password);
+      // Сбрасываем флаг соединения при регистрации, но не переходим на экран загрузки сразу
+      // setIsConnecting(true);
+      const userData = await authService.register(displayName, login, password);
       setIsAuthenticated(true);
       setUser(userData);
+      // Только после успешной регистрации показываем экран подключения
+      setIsConnecting(true);
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message);

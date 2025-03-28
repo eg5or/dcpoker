@@ -3,7 +3,7 @@ interface AuthResponse {
   user: {
     id: string;
     name: string;
-    email: string;
+    login: string;
   };
   message: string;
 }
@@ -11,7 +11,7 @@ interface AuthResponse {
 interface UserData {
   id: string;
   name: string;
-  email: string;
+  login: string;
 }
 
 class AuthService {
@@ -59,14 +59,14 @@ class AuthService {
     }
   }
 
-  async login(email: string, password: string): Promise<UserData> {
+  async login(login: string, password: string): Promise<UserData> {
     try {
       const response = await fetch(`${this.baseUrl}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ login, password })
       });
 
       if (!response.ok) {
@@ -92,7 +92,7 @@ class AuthService {
     }
   }
 
-  async register(name: string, email: string, password: string): Promise<UserData> {
+  async register(name: string, login: string, password: string): Promise<UserData> {
     try {
       console.log('Отправка запроса на регистрацию:', `${this.baseUrl}/auth/register`);
       const response = await fetch(`${this.baseUrl}/auth/register`, {
@@ -100,7 +100,7 @@ class AuthService {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ name, email, password })
+        body: JSON.stringify({ name, login, password })
       });
 
       console.log('Ответ сервера:', response.status, response.statusText);
