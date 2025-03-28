@@ -19,6 +19,7 @@ export function UserCard({
   isRevealed, 
   currentUserId, 
   onThrowEmoji, 
+  selectedEmoji,
   easterEggState,
   onVoteAfterReveal,
   socket

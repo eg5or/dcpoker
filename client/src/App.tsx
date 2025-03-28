@@ -8,7 +8,7 @@ import { animateEmojisFalling } from './components/UserCardEffects';
 import useSocket from './hooks/useSocket';
 import { authService } from './services/auth.service';
 import type { GameState } from './types';
-import { FIBONACCI_SEQUENCE } from './types';
+import { AVAILABLE_EMOJIS, FIBONACCI_SEQUENCE } from './types';
 
 // Начальное состояние игры
 const initialGameState: GameState = {
@@ -59,6 +59,7 @@ function App() {
     time: number;
     data: any;
   }>>([]);
+  const [selectedEmoji, setSelectedEmoji] = useState<string>(AVAILABLE_EMOJIS[0]);
 
   // Выделяем функции обработки анимаций
   const handleEmojiThrown = useCallback(({ targetId, emoji, trajectory, placement }: EmojiThrowData) => {
@@ -551,6 +552,11 @@ function App() {
           userName={user.name}
           onLogout={logout}
           onProfileClick={handleProfileClick}
+          onReveal={handleReveal}
+          onReset={handleReset}
+          onResetUsers={() => socket?.emit('users:reset')}
+          selectedEmoji={selectedEmoji}
+          onSelectEmoji={setSelectedEmoji}
         />
       )}
       <div className="flex-grow">
@@ -566,7 +572,7 @@ function App() {
           onRecalculateAverage={handleRecalculateAverage}
           onThrowEmoji={handleThrowEmoji}
           sequence={FIBONACCI_SEQUENCE}
-          onLogout={logout}
+          selectedEmoji={selectedEmoji}
         />
         <div className="container mx-auto px-4">
           <GlobalStatsPanel />
