@@ -10,7 +10,14 @@ export class StatsService {
    */
   static async getUserStats(userId: string): Promise<any> {
     try {
-      const userObjectId = new mongoose.Types.ObjectId(userId);
+      // Проверяем, является ли userId валидным ObjectId или строкой
+      let userObjectId;
+      if (mongoose.Types.ObjectId.isValid(userId)) {
+        userObjectId = new mongoose.Types.ObjectId(userId);
+      } else {
+        // Для строковых userId (id сокета), используем строковое значение как есть
+        userObjectId = userId;
+      }
       
       // Проверяем, есть ли статистика для пользователя
       let stats = await UserStats.findOne({ userId: userObjectId });
@@ -230,67 +237,80 @@ export class StatsService {
       }
       
       // Проверяем, не обрабатывалась ли эта сессия ранее
-      // Используем поле revealedAt как индикатор, что сессия уже была учтена в статистике
       const isSessionAlreadyProcessed = session.get('statisticsProcessed');
       if (isSessionAlreadyProcessed) {
         console.log(`Сессия ${sessionId} уже учтена в статистике, пропускаем`);
         return;
       }
       
+      // Получаем и логируем информацию об изменении голосов после раскрытия
+      const votesWithChanges = session.votes.filter((vote: any) => vote.changedAfterReveal);
+      console.log(`Сессия ${sessionId} содержит ${votesWithChanges.length} измененных голосов после раскрытия`);
+      
       // Обновляем статистику каждого участника
       const processedUsers = new Set<string>();
       
       for (const vote of session.votes) {
-        const userId = vote.userId.toString();
+        // Получаем userId в виде строки для использования в качестве ключа в processedUsers
+        const userIdStr = typeof vote.userId === 'string' 
+          ? vote.userId 
+          : vote.userId.toString();
         
         // Пропускаем пользователей, которых уже обработали
-        if (processedUsers.has(userId)) {
+        if (processedUsers.has(userIdStr)) {
           continue;
         }
         
-        processedUsers.add(userId);
+        processedUsers.add(userIdStr);
         
-        // Получаем статистику пользователя
-        let userStats = await UserStats.findOne({ userId: vote.userId });
-        if (!userStats) {
-          userStats = await this.getUserStats(userId);
-        }
-        
-        if (!userStats) {
-          console.log(`Не удалось получить статистику для пользователя ${userId}`);
-          continue;
-        }
-        
-        // Одна сессия = одно голосование, инкрементируем только один раз для пользователя
-        // независимо от количества голосов
-        userStats.totalSessions += 1;
-        
-        // Если сессия была завершена, увеличиваем счетчик завершенных сессий
-        if (session.status === 'completed') {
-          userStats.completedSessions += 1;
-        }
-        
-        // Увеличиваем количество голосов пользователя
-        userStats.votesStats.total += 1;
-        
-        // Если голос был изменен после раскрытия, обновляем статистику
-        if (vote.changedAfterReveal) {
-          userStats.votesStats.changedAfterReveal += 1;
-        }
-        
-        // Обновляем статистику по оценкам
-        const initialVote = vote.initialVote;
-        if (initialVote !== null && typeof initialVote === 'number') {
-          const voteIndex = userStats.votesStats.values.findIndex(v => v.value === initialVote);
-          if (voteIndex !== -1) {
-            userStats.votesStats.values[voteIndex].count += 1;
-          } else {
-            userStats.votesStats.values.push({ value: initialVote, count: 1 });
+        try {
+          // Получаем статистику пользователя
+          let userStats = await UserStats.findOne({ userId: vote.userId });
+          if (!userStats) {
+            // Если не найдено, создаем новую запись
+            userStats = await this.getUserStats(userIdStr);
           }
+          
+          if (!userStats) {
+            console.log(`Не удалось получить статистику для пользователя ${userIdStr}`);
+            continue;
+          }
+          
+          // Одна сессия = одно голосование, инкрементируем только один раз для пользователя
+          // независимо от количества голосов
+          userStats.totalSessions += 1;
+          
+          // Если сессия была завершена, увеличиваем счетчик завершенных сессий
+          if (session.status === 'completed') {
+            userStats.completedSessions += 1;
+          }
+          
+          // Увеличиваем количество голосов пользователя
+          userStats.votesStats.total += 1;
+          
+          // Если голос был изменен после раскрытия, обновляем статистику
+          if (vote.changedAfterReveal) {
+            console.log(`Пользователь ${userIdStr} изменил голос после раскрытия: ${vote.initialVote} -> ${vote.finalVote}`);
+            userStats.votesStats.changedAfterReveal += 1;
+          }
+          
+          // Обновляем статистику по оценкам
+          const initialVote = vote.initialVote;
+          if (initialVote !== null && typeof initialVote === 'number') {
+            const voteIndex = userStats.votesStats.values.findIndex(v => v.value === initialVote);
+            if (voteIndex !== -1) {
+              userStats.votesStats.values[voteIndex].count += 1;
+            } else {
+              userStats.votesStats.values.push({ value: initialVote, count: 1 });
+            }
+          }
+          
+          userStats.lastUpdated = new Date();
+          await userStats.save();
+        } catch (error) {
+          console.error(`Ошибка при обновлении статистики пользователя ${userIdStr}:`, error);
+          // Продолжаем с другими пользователями, не прерывая процесс
         }
-        
-        userStats.lastUpdated = new Date();
-        await userStats.save();
       }
       
       // Обновляем глобальную статистику
@@ -468,6 +488,117 @@ export class StatsService {
       
     } catch (error) {
       console.error('Ошибка при обновлении глобальной статистики сессии:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Обновить статистику при изменении голосов после раскрытия карт
+   * Этот метод используется когда пользователи меняют свои голоса после раскрытия карт,
+   * и нужно обновить уже записанную статистику
+   */
+  static async updateVoteChangesStats(sessionId: string): Promise<void> {
+    try {
+      const sessionObjectId = new mongoose.Types.ObjectId(sessionId);
+      
+      // Получаем сессию
+      const session = await VotingSession.findById(sessionObjectId);
+      if (!session) {
+        throw new Error('Сессия не найдена');
+      }
+      
+      // Проверяем, что сессия была раскрыта
+      if (!session.wasRevealed) {
+        console.log(`Сессия ${sessionId} не была раскрыта, нет смысла обновлять голоса`);
+        return;
+      }
+      
+      // Получаем изменённые голоса
+      const changedVotes = session.votes.filter((vote: any) => vote.changedAfterReveal);
+      console.log(`Обновление статистики для ${changedVotes.length} измененных голосов в сессии ${sessionId}`);
+      
+      // Если изменённых голосов нет, нет смысла продолжать
+      if (changedVotes.length === 0) {
+        return;
+      }
+      
+      // Обновляем статистику по измененным голосам для каждого пользователя
+      const processedUsers = new Set<string>();
+      
+      for (const vote of changedVotes) {
+        // Получаем userId в виде строки для использования в качестве ключа в processedUsers
+        const userIdStr = typeof vote.userId === 'string' 
+          ? vote.userId 
+          : vote.userId.toString();
+        
+        // Пропускаем пользователей, которых уже обработали
+        if (processedUsers.has(userIdStr)) {
+          continue;
+        }
+        
+        processedUsers.add(userIdStr);
+        
+        try {
+          // Получаем статистику пользователя
+          let userStats = await UserStats.findOne({ userId: vote.userId });
+          if (!userStats) {
+            // Если не найдено, пробуем найти или создать запись
+            userStats = await this.getUserStats(userIdStr);
+          }
+          
+          if (!userStats) {
+            console.log(`Не удалось найти статистику для пользователя ${userIdStr}`);
+            continue;
+          }
+          
+          // Обновляем счетчик изменений голоса после раскрытия, 
+          // если он не был обновлен ранее
+          if (!vote.changedAfterRevealCounted) {
+            console.log(`Увеличиваем счетчик изменений для пользователя ${userIdStr}: ${userStats.votesStats.changedAfterReveal} -> ${userStats.votesStats.changedAfterReveal + 1}`);
+            userStats.votesStats.changedAfterReveal += 1;
+            
+            // Отмечаем, что изменение было учтено
+            vote.changedAfterRevealCounted = true;
+          }
+          
+          userStats.lastUpdated = new Date();
+          await userStats.save();
+        } catch (error) {
+          console.error(`Ошибка при обновлении статистики изменённых голосов для пользователя ${userIdStr}:`, error);
+          // Продолжаем с другими пользователями, не прерывая процесс
+        }
+      }
+      
+      // Сохраняем состояние сессии
+      await session.save();
+      
+      // Обновляем глобальную статистику по измененным голосам
+      let globalStats = await GlobalStats.findOne();
+      
+      if (globalStats) {
+        // Подсчитываем новые изменённые голоса, которые еще не были учтены
+        const uncountedChanges = changedVotes.filter((vote: any) => !vote.changedAfterRevealCounted).length;
+        
+        if (uncountedChanges > 0) {
+          console.log(`Обновляем глобальную статистику изменений голосов: ${globalStats.votesStats.changedAfterReveal} -> ${globalStats.votesStats.changedAfterReveal + uncountedChanges}`);
+          globalStats.votesStats.changedAfterReveal += uncountedChanges;
+          globalStats.lastUpdated = new Date();
+          await globalStats.save();
+          
+          // Оповещаем клиентов об обновлении статистики
+          try {
+            const io = ioModule.getIO();
+            io.emit('stats:updated');
+            console.log('Отправлено событие stats:updated после обновления изменённых голосов');
+          } catch (error) {
+            console.error('Ошибка при отправке события stats:updated:', error);
+          }
+        }
+      }
+      
+      console.log(`Статистика изменённых голосов для сессии ${sessionId} успешно обновлена`);
+    } catch (error) {
+      console.error('Ошибка при обновлении статистики изменённых голосов:', error);
       throw error;
     }
   }

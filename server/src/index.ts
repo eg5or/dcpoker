@@ -129,71 +129,59 @@ async function createOrUpdateVotingSession(initialCreatorId?: string): Promise<V
   }
 }
 
-// Функция для обновления статистики при раскрытии карт
+// Функция для обновления сессии при раскрытии карт
 async function updateSessionOnReveal() {
   try {
     if (!currentSession) return;
     
-    // Проверяем, не была ли сессия уже раскрыта
-    const wasAlreadyRevealed = currentSession.get('wasRevealed') === true;
+    const votes = currentSession.get('votes') || [];
     
-    // Обновляем статус сессии
-    currentSession.set({
-      wasRevealed: true,
-      status: 'revealed',
-      revealedAt: new Date()
-    });
-    
-    // Добавляем информацию о голосах только если они еще не добавлены
-    if (!wasAlreadyRevealed) {
-      const votes = gameState.users
-        .filter(user => user.vote !== null)
-        .map(user => {
-          // Пытаемся найти сокет пользователя для получения его mongoose ObjectId
-          const userSocket = Array.from(io.sockets.sockets.values())
-            .find(s => (s as any).id === user.id) as AuthenticatedSocket | undefined;
-            
-          // Если пользователь аутентифицирован, используем его mongoose ID
-          const userId = userSocket?.user?.id 
-            ? new mongoose.Types.ObjectId(userSocket.user.id)
-            : new mongoose.Types.ObjectId(); // Резервный вариант
-            
-          return {
-            userId,
+    // Добавляем голоса текущих пользователей, если их еще нет
+    for (const user of gameState.users) {
+      if (user.vote !== null) {
+        // Проверяем, есть ли уже голос этого пользователя
+        const existingVoteIndex = votes.findIndex((v: any) => {
+          if (!v || !v.userId) return false;
+          
+          if (typeof v.userId === 'string') {
+            return v.userId === user.id;
+          } else if (v.userId.toString) {
+            return v.userId.toString() === user.id;
+          }
+          return false;
+        });
+        
+        if (existingVoteIndex === -1) {
+          // Если голоса нет, добавляем новый
+          // Используем ID пользователя из gameState, поскольку мы не имеем доступа к socket здесь
+          votes.push({
+            userId: user.id,
             username: user.name,
             initialVote: user.vote,
             finalVote: user.vote,
-            votedAt: new Date(),
-            changedAfterReveal: false
-          };
-        });
-      
-      currentSession.set({ votes });
+            changedAfterReveal: false,
+            votedAt: new Date()
+          });
+        }
+      }
     }
     
-    // Обновляем среднюю оценку и согласованность
-    if (gameState.averageVote !== null && gameState.consistency) {
-      currentSession.set({
-        averageVote: gameState.averageVote,
-        consistency: {
-          emoji: gameState.consistency.emoji,
-          description: gameState.consistency.description
-        }
-      });
-    }
+    // Обновляем статус и данные сессии
+    currentSession.set({
+      votes,
+      wasRevealed: true,
+      revealedAt: new Date(),
+      averageVote: gameState.averageVote,
+      consistency: gameState.consistency ? {
+        emoji: gameState.consistency.emoji,
+        description: gameState.consistency.description
+      } : null
+    });
     
     await currentSession.save();
     
-    // Проверяем, не была ли статистика уже обработана для этой сессии
-    const statisticsProcessed = currentSession.get('statisticsProcessed') === true;
-    
-    // Обновляем статистику только если она еще не была обработана
-    if (!statisticsProcessed) {
-      console.log(`Обновление статистики для сессии ${currentSession._id}`);
-      await StatsService.updateSessionStats(currentSession._id.toString());
-    } else {
-      console.log(`Статистика для сессии ${currentSession._id} уже обработана, пропускаем`);
-    }
+    // Обновляем статистику при раскрытии карт
+    await StatsService.updateSessionStats(currentSession._id.toString());
     
     console.log('Обновлена сессия голосования при раскрытии карт:', currentSession._id);
   } catch (error) {
@@ -218,7 +206,19 @@ async function completeCurrentSession() {
       
       for (const user of gameState.users) {
         if (user.changedVoteAfterReveal && user.vote !== null) {
-          const voteIndex = votes.findIndex((v: any) => v.userId.toString() === user.id);
+          // Безопасный поиск индекса - проверяем существование userId и метода toString()
+          const voteIndex = votes.findIndex((v: any) => {
+            if (!v || !v.userId) return false;
+            
+            // Проверяем, что можно безопасно вызвать toString() или сравнить напрямую
+            if (typeof v.userId === 'string') {
+              return v.userId === user.id;
+            } else if (v.userId.toString) {
+              return v.userId.toString() === user.id;
+            }
+            return false;
+          });
+          
           if (voteIndex !== -1) {
             votes[voteIndex].finalVote = user.vote;
             votes[voteIndex].changedAfterReveal = true;
@@ -231,21 +231,9 @@ async function completeCurrentSession() {
     
     await currentSession.save();
     
-    // Проверяем, обработана ли уже статистика для этой сессии
-    const statisticsProcessed = currentSession.get('statisticsProcessed') === true;
-    
-    // Если статистика еще не обработана, обновляем её
-    if (!statisticsProcessed) {
-      console.log(`Обновление статистики при завершении сессии ${currentSession._id}`);
-      await StatsService.updateSessionStats(currentSession._id.toString());
-    } else {
-      // Если статистика уже обработана, но сессия была "revealed" а не "completed"
-      // Обновляем только глобальную статистику с учетом статуса завершения
-      if (currentSession.get('status') === 'completed') {
-        console.log(`Обновление статуса завершения в глобальной статистике для сессии ${currentSession._id}`);
-        await StatsService.updateCompletedSessionStats(currentSession._id.toString());
-      }
-    }
+    // При завершении сессии обновляем статус завершенных сессий
+    console.log(`Обновление статуса завершения для сессии ${currentSession._id}`);
+    await StatsService.updateCompletedSessionStats(currentSession._id.toString());
     
     // Сбрасываем текущую сессию
     currentSession = null;
@@ -558,20 +546,38 @@ io.on('connection', (socket: AuthenticatedSocket) => {
   socket.on('recalculate:average', async () => {
     if (gameState.isRevealed) {
       calculateAverageVote();
-      gameState.usersChangedVoteAfterReveal = [];
-      gameState.users.forEach(user => {
-        user.changedVoteAfterReveal = false;
-      });
       
-      // Обновляем сессию с новыми данными
+      // Обновляем сессию с новыми данными по изменённым голосам
       if (currentSession) {
         const votes = currentSession.get('votes') || [];
+        let hasChangedVotes = false;
         
-        // Обновляем финальные голоса
+        // Обновляем финальные голоса и помечаем изменённые
         for (const user of gameState.users) {
           if (user.vote !== null) {
-            const voteIndex = votes.findIndex((v: any) => v.userId.toString() === user.id);
+            const voteIndex = votes.findIndex((v: any) => {
+              if (!v || !v.userId) return false;
+              
+              // Безопасный поиск
+              if (typeof v.userId === 'string') {
+                return v.userId === user.id;
+              } else if (v.userId.toString) {
+                return v.userId.toString() === user.id;
+              }
+              return false;
+            });
+            
             if (voteIndex !== -1) {
+              // Проверяем, изменился ли голос
+              if (votes[voteIndex].initialVote !== user.vote) {
+                // Помечаем голос как изменённый, если он еще не был помечен
+                if (!votes[voteIndex].changedAfterReveal) {
+                  votes[voteIndex].changedAfterReveal = true;
+                  hasChangedVotes = true;
+                }
+              }
+              
+              // Обновляем финальное значение голоса
               votes[voteIndex].finalVote = user.vote;
             }
           }
@@ -589,8 +595,20 @@ io.on('connection', (socket: AuthenticatedSocket) => {
           });
           
           await currentSession.save();
+          
+          // Если были изменения голосов, обновляем статистику
+          if (hasChangedVotes) {
+            console.log('Обнаружены изменения голосов, обновляем статистику');
+            await StatsService.updateVoteChangesStats(currentSession._id.toString());
+          }
         }
       }
+      
+      // Сбрасываем флаги изменений для UI
+      gameState.usersChangedVoteAfterReveal = [];
+      gameState.users.forEach(user => {
+        user.changedVoteAfterReveal = false;
+      });
       
       io.emit('game:state', gameState);
     }

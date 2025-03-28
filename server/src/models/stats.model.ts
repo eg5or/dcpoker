@@ -1,20 +1,33 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Document, Schema, model } from 'mongoose';
 
-// Интерфейс для эмодзи статистики
-interface EmojiStat {
-  emoji: string;
-  count: number;
-}
-
-// Интерфейс для статистики по оценкам
-interface VoteStat {
+// Интерфейс для статистики голосования
+export interface VoteStat {
   value: number;
   count: number;
 }
 
-// Интерфейс для документа статистики пользователя
+// Схема для статистики голосования
+export const VoteStatSchema = new Schema<VoteStat>({
+  value: Number,
+  count: Number
+}, { _id: false });
+
+// Интерфейс для статистики эмодзи
+export interface EmojiStat {
+  emoji: string;
+  count: number;
+}
+
+// Схема для статистики эмодзи
+export const EmojiStatSchema = new Schema<EmojiStat>({
+  emoji: String,
+  count: Number
+}, { _id: false });
+
+// Интерфейс для статистики пользователя
 export interface UserStatsDocument extends Document {
-  userId: mongoose.Types.ObjectId;
+  // ID пользователя, может быть ObjectId или строкой (для сокетов)
+  userId: mongoose.Types.ObjectId | string;
   totalSessions: number;
   completedSessions: number;
   votesStats: {
@@ -49,34 +62,52 @@ export interface GlobalStatsDocument extends Document {
   lastUpdated: Date;
 }
 
-// Схема для эмодзи статистики
-const EmojiStatSchema = new Schema<EmojiStat>({
-  emoji: { type: String, required: true },
-  count: { type: Number, default: 0 }
-}, { _id: false });
-
-// Схема для статистики по оценкам
-const VoteStatSchema = new Schema<VoteStat>({
-  value: { type: Number, required: true },
-  count: { type: Number, default: 0 }
-}, { _id: false });
-
 // Схема для статистики пользователя
-const UserStatsSchema = new Schema<UserStatsDocument>({
-  userId: { type: Schema.Types.ObjectId, required: true, ref: 'User', unique: true },
-  totalSessions: { type: Number, default: 0 },
-  completedSessions: { type: Number, default: 0 },
+export const UserStatsSchema = new Schema<UserStatsDocument>({
+  // Используем Schema.Types.Mixed, чтобы принимать как ObjectId, так и строки
+  userId: {
+    type: Schema.Types.Mixed,
+    required: true,
+    validate: {
+      validator: function(v: any) {
+        // Проверяем, что значение либо валидный ObjectId, либо непустая строка
+        return mongoose.Types.ObjectId.isValid(v) || (typeof v === 'string' && v.trim().length > 0);
+      },
+      message: 'userId должен быть валидным ObjectId или непустой строкой'
+    },
+    index: true
+  },
+  totalSessions: {
+    type: Number,
+    default: 0
+  },
+  completedSessions: {
+    type: Number,
+    default: 0
+  },
   votesStats: {
-    total: { type: Number, default: 0 },
+    total: {
+      type: Number,
+      default: 0
+    },
     values: [VoteStatSchema],
-    changedAfterReveal: { type: Number, default: 0 }
+    changedAfterReveal: {
+      type: Number,
+      default: 0
+    }
   },
   emojisStats: {
     sent: [EmojiStatSchema],
     received: [EmojiStatSchema]
   },
-  lastUpdated: { type: Date, default: Date.now }
+  lastUpdated: {
+    type: Date,
+    default: Date.now
+  }
 });
+
+// Model для статистики пользователя
+export const UserStats = model<UserStatsDocument>('UserStats', UserStatsSchema);
 
 // Схема для глобальной статистики
 const GlobalStatsSchema = new Schema<GlobalStatsDocument>({
@@ -98,10 +129,9 @@ const GlobalStatsSchema = new Schema<GlobalStatsDocument>({
   lastUpdated: { type: Date, default: Date.now }
 });
 
+// Создание моделей
+export const GlobalStats = mongoose.model<GlobalStatsDocument>('GlobalStats', GlobalStatsSchema);
+
 // Индексы для оптимизации запросов
 UserStatsSchema.index({ userId: 1 });
-UserStatsSchema.index({ lastUpdated: -1 });
-
-// Создание моделей
-export const UserStats = mongoose.model<UserStatsDocument>('UserStats', UserStatsSchema);
-export const GlobalStats = mongoose.model<GlobalStatsDocument>('GlobalStats', GlobalStatsSchema); 
+UserStatsSchema.index({ lastUpdated: -1 }); 

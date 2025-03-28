@@ -2,12 +2,13 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 // Интерфейс для учёта голосов в сессии
 export interface Vote {
-  userId: mongoose.Types.ObjectId;
+  userId: mongoose.Types.ObjectId | string;
   username: string;
   initialVote: number;
   finalVote: number;
   votedAt: Date;
   changedAfterReveal: boolean;
+  changedAfterRevealCounted?: boolean;
 }
 
 // Интерфейс для эмодзи в сессии
@@ -45,12 +46,23 @@ export interface VotingSessionDocument extends Document {
 
 // Схема для голоса в сессии
 const VoteSchema = new Schema<Vote>({
-  userId: { type: Schema.Types.ObjectId, required: true, ref: 'User' },
+  userId: { 
+    type: Schema.Types.Mixed, 
+    required: true,
+    validate: {
+      validator: function(v: any) {
+        // Валидируем, что userId - либо ObjectId, либо строка
+        return mongoose.Types.ObjectId.isValid(v) || (typeof v === 'string' && v.length > 0);
+      },
+      message: 'userId должен быть валидным ObjectId или непустой строкой'
+    }
+  },
   username: { type: String, required: true },
   initialVote: { type: Number, required: true },
   finalVote: { type: Number, required: true },
   votedAt: { type: Date, default: Date.now },
-  changedAfterReveal: { type: Boolean, default: false }
+  changedAfterReveal: { type: Boolean, default: false },
+  changedAfterRevealCounted: { type: Boolean, default: false }
 });
 
 // Схема для эмодзи в сессии
