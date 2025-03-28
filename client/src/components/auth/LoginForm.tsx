@@ -92,14 +92,12 @@ export function LoginForm({ onLogin, onSwitchToRegister, error }: LoginFormProps
     <div className="bg-gray-800 p-8 rounded-lg shadow-xl form-container">
       <h1 className="text-2xl text-white mb-4">Вход</h1>
       
-      {/* Контейнер для общей ошибки с фиксированной высотой */}
-      <div className="error-container min-h-[50px] mb-4 relative">
-        {error && (
-          <div className="bg-red-500 text-white p-3 rounded animate-fadeIn">
-            {error}
-          </div>
-        )}
-      </div>
+      {/* Контейнер для общей ошибки - теперь без фиксированной высоты */}
+      {error && (
+        <div className="bg-red-500 text-white p-3 rounded animate-fadeIn mb-4">
+          {error}
+        </div>
+      )}
       
       <form onSubmit={handleSubmit} className="w-full">
         <div className="mb-4">
@@ -113,11 +111,11 @@ export function LoginForm({ onLogin, onSwitchToRegister, error }: LoginFormProps
             className={`w-full p-2 rounded bg-gray-700 text-white ${formErrors?.login ? 'border-2 border-red-500' : ''}`}
             required
           />
-          <div className="form-error-container">
-            {formErrors?.login && (
+          {formErrors?.login && (
+            <div className="form-error-container">
               <p className="form-error-message">{formErrors.login}</p>
-            )}
-          </div>
+            </div>
+          )}
         </div>
         
         <div className="mb-6">
@@ -130,11 +128,11 @@ export function LoginForm({ onLogin, onSwitchToRegister, error }: LoginFormProps
             required
             error={!!formErrors?.password}
           />
-          <div className="form-error-container">
-            {formErrors?.password && (
+          {formErrors?.password && (
+            <div className="form-error-container">
               <p className="form-error-message">{formErrors.password}</p>
-            )}
-          </div>
+            </div>
+          )}
         </div>
         
         <button
