@@ -36,7 +36,7 @@ export function EmojiSelector({ selectedEmoji, onSelectEmoji }: EmojiSelectorPro
   return (
     <div className="relative flex-1 sm:flex-none" ref={selectorRef}>
       <button
-        className={`w-full sm:w-auto bg-gray-700 hover:bg-gray-600 p-2 rounded-lg flex items-center justify-center shadow transition-all ${
+        className={`w-full sm:w-auto h-full bg-gray-700 hover:bg-gray-600 px-2 rounded-lg flex items-center justify-center shadow transition-all ${
           isOpen ? 'ring-2 ring-blue-400' : ''
         }`}
         onClick={toggleDropdown}
@@ -48,7 +48,7 @@ export function EmojiSelector({ selectedEmoji, onSelectEmoji }: EmojiSelectorPro
       </button>
 
       {isOpen && (
-        <div className="absolute top-12 right-0 sm:top-14 bg-gray-800 rounded-lg p-2 shadow-xl z-10 flex flex-col gap-2 w-full max-w-[16rem] sm:max-w-none sm:w-16 max-h-[70vh] overflow-y-auto">
+        <div className="absolute top-12 right-0 sm:top-12 bg-gray-800 rounded-lg p-2 shadow-xl z-10 flex flex-col gap-2 w-full max-w-[16rem] sm:max-w-none sm:w-16 max-h-[70vh] overflow-y-auto">
           {AVAILABLE_EMOJIS.map((emoji) => (
             <button
               key={emoji}
