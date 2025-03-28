@@ -9,9 +9,9 @@ server/node_modules/
 /coverage
 
 # Продакшн билды
-/build
-/dist
-client/dist/
+/server/build
+/server/dist
+/client/dist/
 /.next/
 /out/
 .env

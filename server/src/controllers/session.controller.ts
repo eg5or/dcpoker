@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { SessionService } from '../services/session.service';
+import { SessionService } from '../services/session.service.js';
 
 export class SessionController {
   /**

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { StatsService } from '../services/stats.service';
+import { StatsService } from '../services/stats.service.js';
 
 export class StatsController {
   /**

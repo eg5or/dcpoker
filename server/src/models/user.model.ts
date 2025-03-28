@@ -99,4 +99,7 @@ UserSchema.set('toJSON', {
 });
 
 // Создание модели
-export const User = mongoose.model<UserDocument>('User', UserSchema); 
+export const User = mongoose.model<UserDocument>('User', UserSchema);
+
+// Добавить экспорт дефолтной модели для совместимости
+export default User; 

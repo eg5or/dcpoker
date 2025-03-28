@@ -4,14 +4,14 @@ import express from 'express';
 import { createServer } from 'http';
 import mongoose from 'mongoose';
 import { Server, Socket } from 'socket.io';
-import { connectDB } from './config/db';
-import { verifyToken } from './config/jwt';
-import { VotingSession } from './models/session.model';
-import { User } from './models/user.model';
-import authRoutes from './routes/auth.routes';
-import statsRoutes from './routes/stats.routes';
-import { StatsService } from './services/stats.service';
-import { initializeIO } from './utils/io';
+import { connectDB } from './config/db.js';
+import { verifyToken } from './config/jwt.js';
+import { VotingSession } from './models/session.model.js';
+import { User } from './models/user.model.js';
+import authRoutes from './routes/auth.routes.js';
+import statsRoutes from './routes/stats.routes.js';
+import { StatsService } from './services/stats.service.js';
+import { initializeIO } from './utils/io.js';
 
 // Загружаем переменные окружения
 dotenv.config();

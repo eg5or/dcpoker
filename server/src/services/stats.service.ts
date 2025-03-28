@@ -1,8 +1,8 @@
 import mongoose from 'mongoose';
-import { VotingSession } from '../models/session.model';
-import { GlobalStats, UserStats } from '../models/stats.model';
-import { User } from '../models/user.model';
-import ioModule from '../utils/io';
+import { VotingSession } from '../models/session.model.js';
+import { GlobalStats, UserStats } from '../models/stats.model.js';
+import { User } from '../models/user.model.js';
+import ioModule from '../utils/io.js';
 
 export class StatsService {
   /**

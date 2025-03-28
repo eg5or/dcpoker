@@ -14,4 +14,6 @@ export function getIO(): Server {
   return io;
 }
 
-export default { initializeIO, getIO }; 
+// Экспортируем объект как дефолтный и именованный экспорт для максимальной совместимости
+const ioUtils = { initializeIO, getIO };
+export default ioUtils; 

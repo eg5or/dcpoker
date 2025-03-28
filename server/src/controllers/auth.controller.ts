@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { generateToken } from '../config/jwt';
-import { User } from '../models/user.model';
+import { generateToken } from '../config/jwt.js';
+import { User } from '../models/user.model.js';
 
 // Регистрация нового пользователя
 export const register = async (req: Request, res: Response): Promise<Response> => {

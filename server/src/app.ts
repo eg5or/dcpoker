@@ -2,9 +2,9 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
 import mongoose from 'mongoose';
-import sessionRoutes from './routes/session.routes';
-import settingsRoutes from './routes/settings.routes';
-import statsRoutes from './routes/stats.routes';
+import sessionRoutes from './routes/session.routes.js';
+import settingsRoutes from './routes/settings.routes.js';
+import statsRoutes from './routes/stats.routes.js';
 
 // Загружаем переменные окружения
 dotenv.config();

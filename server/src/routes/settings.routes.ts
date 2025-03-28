@@ -1,6 +1,6 @@
 import express from 'express';
-import { UserSettingsController } from '../controllers/user-settings.controller';
-import { authMiddleware } from '../middleware/auth.middleware';
+import { UserSettingsController } from '../controllers/user-settings.controller.js';
+import { authMiddleware } from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 

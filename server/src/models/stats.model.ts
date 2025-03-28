@@ -1,4 +1,4 @@
-import mongoose, { Document, Schema, model } from 'mongoose';
+import mongoose, { Document, Schema } from 'mongoose';
 
 // Интерфейс для статистики голосования
 export interface VoteStat {
@@ -106,7 +106,7 @@ export const UserStatsSchema = new Schema<UserStatsDocument>({
 });
 
 // Model для статистики пользователя
-export const UserStats = model<UserStatsDocument>('UserStats', UserStatsSchema);
+export const UserStats = mongoose.model<UserStatsDocument>('UserStats', UserStatsSchema);
 
 // Схема для глобальной статистики
 const GlobalStatsSchema = new Schema<GlobalStatsDocument>({

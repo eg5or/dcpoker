@@ -120,4 +120,7 @@ VotingSessionSchema.index({ createdAt: -1 });
 VotingSessionSchema.index({ createdBy: 1, createdAt: -1 });
 
 // Создание модели
-export const VotingSession = mongoose.model<VotingSessionDocument>('VotingSession', VotingSessionSchema); 
+export const VotingSession = mongoose.model<VotingSessionDocument>('VotingSession', VotingSessionSchema);
+
+// Экспорт по умолчанию для совместимости
+export default VotingSession; 

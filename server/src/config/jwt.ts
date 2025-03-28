@@ -1,24 +1,22 @@
 import dotenv from 'dotenv';
-import jwt, { JwtPayload, Secret, SignOptions } from 'jsonwebtoken';
-import { UserDocument } from '../models/user.model';
+import jwt, { JwtPayload } from 'jsonwebtoken';
+import { UserDocument } from '../models/user.model.js';
 
 dotenv.config();
 
-const JWT_SECRET: Secret = process.env.JWT_SECRET || 'supersecret_jwt_key';
-const JWT_EXPIRES_IN = '7d';
+// Определяем переменные окружения
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_jwt_key';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
 export const generateToken = (user: UserDocument): string => {
-  const options: SignOptions = { expiresIn: JWT_EXPIRES_IN };
+  const payload = { 
+    id: user._id, 
+    login: user.login,
+    name: user.username 
+  };
   
-  return jwt.sign(
-    { 
-      id: user._id, 
-      login: user.login,
-      name: user.username 
-    },
-    JWT_SECRET,
-    options
-  );
+  // @ts-ignore - игнорируем проблему типизации jwt.sign
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 };
 
 export const verifyToken = (token: string): JwtPayload | null => {
@@ -27,4 +25,6 @@ export const verifyToken = (token: string): JwtPayload | null => {
   } catch (error) {
     return null;
   }
-}; 
+};
+
+export default { generateToken, verifyToken }; 

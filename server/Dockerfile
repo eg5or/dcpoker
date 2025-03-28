@@ -20,8 +20,16 @@ RUN echo "PORT=3001" > .env \
     && echo "JWT_SECRET=supersecret_jwt_key_change_in_production" >> .env \
     && echo "JWT_EXPIRES_IN=7d" >> .env
 
+# Убедимся, что директория dist очищена для новой сборки
+RUN npm install rimraf -g
+RUN rimraf dist
+
 # Собираем приложение
 RUN npm run build
+
+# Проверяем наличие необходимых файлов после сборки
+RUN ls -la dist && \
+    ls -la dist/config || echo "Директория config не создана!"
 
 # Очищаем devDependencies для уменьшения размера
 RUN npm prune --production && npm cache clean --force

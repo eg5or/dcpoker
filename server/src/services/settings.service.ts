@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { ThemeType, UserSettings, VotingSequenceType } from '../models/settings.model';
+import { ThemeType, UserSettings, VotingSequenceType } from '../models/settings.model.js';
 
 // Интерфейс для данных настроек пользователя
 interface UserSettingsData {
@@ -208,7 +208,7 @@ export class SettingsService {
       }
       
       // Удаляем эмодзи из избранного
-      settings.favoriteEmojis = settings.favoriteEmojis.filter(e => e !== emoji);
+      settings.favoriteEmojis = settings.favoriteEmojis.filter((e: string) => e !== emoji);
       settings.updatedAt = new Date();
       await settings.save();
       

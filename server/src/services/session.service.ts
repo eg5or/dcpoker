@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
-import { VotingSession } from '../models/session.model';
-import { StatsService } from './stats.service';
+import { VotingSession } from '../models/session.model.js';
+import { StatsService } from './stats.service.js';
 
 // Интерфейсы для типизации
 interface VoteStats {
@@ -66,7 +66,7 @@ export class SessionService {
       // Проверяем, есть ли пользователь уже в списке участников
       const userObjectId = new mongoose.Types.ObjectId(userId);
       const userExists = session.participants.some(
-        id => id.toString() === userObjectId.toString()
+        (id: mongoose.Types.ObjectId) => id.toString() === userObjectId.toString()
       );
       
       if (!userExists) {
@@ -99,7 +99,7 @@ export class SessionService {
       // Проверяем, есть ли уже голос этого пользователя
       const userObjectId = new mongoose.Types.ObjectId(userId);
       const existingVoteIndex = session.votes.findIndex(
-        v => v.userId.toString() === userObjectId.toString()
+        (v: any) => v.userId.toString() === userObjectId.toString()
       );
       
       if (existingVoteIndex !== -1) {
@@ -155,14 +155,14 @@ export class SessionService {
       
       // Рассчитываем среднюю оценку
       const validVotes = session.votes
-        .filter(vote => vote.initialVote !== null && typeof vote.initialVote === 'number');
+        .filter((v: any) => v.initialVote !== null && typeof v.initialVote === 'number');
       
       if (validVotes.length > 0) {
-        const sum = validVotes.reduce((acc, vote) => acc + vote.initialVote, 0);
+        const sum = validVotes.reduce((acc: number, v: any) => acc + v.initialVote, 0);
         session.averageVote = parseFloat((sum / validVotes.length).toFixed(2));
         
         // Определяем согласованность (логика может быть разной)
-        session.consistency = calculateConsistency(validVotes.map(vote => vote.initialVote));
+        session.consistency = calculateConsistency(validVotes.map((v: any) => v.initialVote));
       }
       
       await session.save();
@@ -297,8 +297,8 @@ export class SessionService {
         // Группируем голоса по значениям и считаем их количество
         const voteGroups: Record<number, number> = {};
         
-        session.votes.forEach(vote => {
-          const value = vote.initialVote;
+        session.votes.forEach((v: any) => {
+          const value = v.initialVote;
           if (value !== null && typeof value === 'number') {
             if (!voteGroups[value]) {
               voteGroups[value] = 0;
@@ -323,7 +323,7 @@ export class SessionService {
         // Группируем эмодзи по значениям и считаем их количество
         const emojiGroups: Record<string, number> = {};
         
-        session.emojis.forEach(emojiObj => {
+        session.emojis.forEach((emojiObj: any) => {
           const value = emojiObj.emoji;
           if (!emojiGroups[value]) {
             emojiGroups[value] = 0;
@@ -379,12 +379,12 @@ function calculateConsistency(votes: number[]): { emoji: string; description: st
   }
   
   // Рассчитываем среднее и отклонение
-  const sum = votes.reduce((a, b) => a + b, 0);
+  const sum = votes.reduce((acc: number, v: number) => acc + v, 0);
   const avg = sum / votes.length;
   
   // Среднее отклонение (в процентах от среднего)
-  const deviations = votes.map(vote => Math.abs(vote - avg) / avg);
-  const avgDeviation = deviations.reduce((a, b) => a + b, 0) / deviations.length;
+  const deviations = votes.map((v: number) => Math.abs(v - avg) / avg);
+  const avgDeviation = deviations.reduce((acc: number, v: number) => acc + v, 0) / deviations.length;
   
   // Уровни согласованности
   if (new Set(votes).size === 1) {
