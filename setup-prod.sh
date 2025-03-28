@@ -118,13 +118,79 @@ docker-compose -f docker-compose.prod.yml up -d --build
 echo "🔍 Проверяем статус контейнеров..."
 docker ps -a | grep dcpoker
 
-# Проверка запуска всех контейнеров
-if [ $(docker ps -q -f name=dcpoker-mongodb | wc -l) -eq 0 ] || [ $(docker ps -q -f name=dcpoker-server | wc -l) -eq 0 ] || [ $(docker ps -q -f name=dcpoker-client | wc -l) -eq 0 ]; then
-    echo "❌ Не все контейнеры запущены. Проверьте логи для выявления проблемы:"
-    echo "docker logs dcpoker-client"
-    echo "docker logs dcpoker-server"
-    echo "docker logs dcpoker-mongodb"
+# Расширенная проверка контейнеров с подробным выводом
+echo "📊 Подробная информация о состоянии контейнеров:"
+
+check_container() {
+    local container_name=$1
+    local container_status=$(docker inspect -f '{{.State.Status}}' $container_name 2>/dev/null)
+    local exit_code=$(docker inspect -f '{{.State.ExitCode}}' $container_name 2>/dev/null)
+    
+    if [ -z "$container_status" ]; then
+        echo "❌ Контейнер $container_name не найден!"
+        return 1
+    elif [ "$container_status" == "running" ]; then
+        echo "✅ Контейнер $container_name запущен успешно"
+        return 0
+    else
+        echo "❌ Контейнер $container_name не запущен (статус: $container_status, код выхода: $exit_code)"
+        return 1
+    fi
+}
+
+container_errors=0
+
+check_container "dcpoker-client" || ((container_errors++))
+check_container "dcpoker-server" || ((container_errors++))
+check_container "dcpoker-mongodb" || ((container_errors++))
+
+if [ $container_errors -gt 0 ]; then
+    echo ""
+    echo "⚠️ Обнаружено $container_errors незапущенных контейнеров. Проверьте логи:"
+    
+    echo "🔍 Последние 20 строк логов сервера (при наличии):"
+    docker logs dcpoker-server --tail 20 2>/dev/null || echo "Логи недоступны"
+    
+    echo ""
+    echo "🔍 Последние 10 строк логов клиента (при наличии):"
+    docker logs dcpoker-client --tail 10 2>/dev/null || echo "Логи недоступны"
+    
     exit 1
+fi
+
+# Добавляем проверку веб-сервера на доступность
+check_http_availability() {
+    local container_name=$1
+    local port=$2
+    
+    if ! docker ps -q -f name=$container_name | grep -q .; then
+        echo "❌ Контейнер $container_name не запущен, проверка HTTP недоступна"
+        return 1
+    fi
+    
+    # Проверяем, доступен ли HTTP-сервер на нужном порту
+    echo "🌐 Проверяем доступность веб-сервера в $container_name (порт $port)..."
+    local http_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$port 2>/dev/null || echo "000")
+    
+    if [ "$http_status" == "000" ]; then
+        echo "❌ Веб-сервер в $container_name недоступен (нет ответа)"
+        return 1
+    elif [ "$http_status" -ge 200 ] && [ "$http_status" -lt 400 ]; then
+        echo "✅ Веб-сервер в $container_name доступен (статус: $http_status)"
+        return 0
+    else
+        echo "⚠️ Веб-сервер в $container_name отвечает с ошибкой (статус: $http_status)"
+        return 1
+    fi
+}
+
+if [ $container_errors -eq 0 ]; then
+    echo ""
+    echo "🧪 Проверка доступности веб-интерфейса..."
+    check_http_availability "dcpoker-client" 80
+    
+    echo ""
+    echo "🎉 Все проверки пройдены успешно! Ваше приложение готово к работе."
 fi
 
 echo "✅ Приложение запущено!"
