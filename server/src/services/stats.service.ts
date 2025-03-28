@@ -517,6 +517,12 @@ export class StatsService {
       const changedVotes = session.votes.filter((vote: any) => vote.changedAfterReveal);
       console.log(`Обновление статистики для ${changedVotes.length} измененных голосов в сессии ${sessionId}`);
       
+      // Более подробная информация об изменённых голосах
+      changedVotes.forEach((vote: any, index: number) => {
+        const userId = typeof vote.userId === 'string' ? vote.userId : vote.userId.toString();
+        console.log(`[${index}] Изменённый голос: userId=${userId}, username=${vote.username}, initialVote=${vote.initialVote}, finalVote=${vote.finalVote}, changedAfterRevealCounted=${vote.changedAfterRevealCounted}`);
+      });
+      
       // Если изменённых голосов нет, нет смысла продолжать
       if (changedVotes.length === 0) {
         return;
@@ -533,6 +539,7 @@ export class StatsService {
         
         // Пропускаем пользователей, которых уже обработали
         if (processedUsers.has(userIdStr)) {
+          console.log(`Пользователь ${userIdStr} уже обработан, пропускаем`);
           continue;
         }
         
@@ -540,10 +547,14 @@ export class StatsService {
         
         try {
           // Получаем статистику пользователя
+          console.log(`Попытка найти статистику для пользователя ${userIdStr}`);
           let userStats = await UserStats.findOne({ userId: vote.userId });
           if (!userStats) {
+            console.log(`Статистика для пользователя ${userIdStr} не найдена, создаем новую`);
             // Если не найдено, пробуем найти или создать запись
             userStats = await this.getUserStats(userIdStr);
+          } else {
+            console.log(`Найдена существующая статистика для пользователя ${userIdStr}: changedAfterReveal=${userStats.votesStats.changedAfterReveal}`);
           }
           
           if (!userStats) {
@@ -559,10 +570,14 @@ export class StatsService {
             
             // Отмечаем, что изменение было учтено
             vote.changedAfterRevealCounted = true;
+            console.log(`Установлен флаг changedAfterRevealCounted для голоса пользователя ${userIdStr}`);
+          } else {
+            console.log(`Изменение голоса для пользователя ${userIdStr} уже было учтено ранее`);
           }
           
           userStats.lastUpdated = new Date();
           await userStats.save();
+          console.log(`Статистика пользователя ${userIdStr} успешно сохранена, текущее значение changedAfterReveal=${userStats.votesStats.changedAfterReveal}`);
         } catch (error) {
           console.error(`Ошибка при обновлении статистики изменённых голосов для пользователя ${userIdStr}:`, error);
           // Продолжаем с другими пользователями, не прерывая процесс
@@ -571,6 +586,7 @@ export class StatsService {
       
       // Сохраняем состояние сессии
       await session.save();
+      console.log(`Сессия ${sessionId} сохранена с обновленными флагами changedAfterRevealCounted`);
       
       // Обновляем глобальную статистику по измененным голосам
       let globalStats = await GlobalStats.findOne();
@@ -578,6 +594,8 @@ export class StatsService {
       if (globalStats) {
         // Подсчитываем новые изменённые голоса, которые еще не были учтены
         const uncountedChanges = changedVotes.filter((vote: any) => !vote.changedAfterRevealCounted).length;
+        
+        console.log(`Всего ${changedVotes.length} измененных голосов, из них ${uncountedChanges} еще не учтены в глобальной статистике`);
         
         if (uncountedChanges > 0) {
           console.log(`Обновляем глобальную статистику изменений голосов: ${globalStats.votesStats.changedAfterReveal} -> ${globalStats.votesStats.changedAfterReveal + uncountedChanges}`);
@@ -593,6 +611,8 @@ export class StatsService {
           } catch (error) {
             console.error('Ошибка при отправке события stats:updated:', error);
           }
+        } else {
+          console.log('Нет новых изменений голосов для обновления глобальной статистики');
         }
       }
       

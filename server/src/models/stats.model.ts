@@ -74,8 +74,7 @@ export const UserStatsSchema = new Schema<UserStatsDocument>({
         return mongoose.Types.ObjectId.isValid(v) || (typeof v === 'string' && v.trim().length > 0);
       },
       message: 'userId должен быть валидным ObjectId или непустой строкой'
-    },
-    index: true
+    }
   },
   totalSessions: {
     type: Number,
@@ -134,4 +133,4 @@ export const GlobalStats = mongoose.model<GlobalStatsDocument>('GlobalStats', Gl
 
 // Индексы для оптимизации запросов
 UserStatsSchema.index({ userId: 1 });
-UserStatsSchema.index({ lastUpdated: -1 }); 
+UserStatsSchema.index({ lastUpdated: -1 });

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { statsService } from '../../services/stats.service';
+import { socket } from '../../socket';
 import { FIBONACCI_SEQUENCE } from '../../types';
 import { UserStats } from '../../types/stats';
 import { BarChart } from './charts/BarChart';
@@ -17,23 +18,37 @@ export const ProfilePage = ({ userName, userId, onBack }: ProfilePageProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  useEffect(() => {
-    const loadStats = async () => {
-      setIsLoading(true);
-      setError(null);
-      
-      try {
-        const userStats = await statsService.getUserStats();
-        setStats(userStats);
-      } catch (err) {
-        console.error('Ошибка при загрузке статистики:', err);
-        setError('Не удалось загрузить статистику. Попробуйте позже.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const loadStats = async () => {
+    setIsLoading(true);
+    setError(null);
     
+    console.log('Запрос статистики пользователя...');
+    try {
+      const userStats = await statsService.getUserStats();
+      console.log('Получена статистика:', userStats);
+      console.log('Изменения после раскрытия:', userStats.votesStats.changedAfterReveal);
+      setStats(userStats);
+    } catch (err) {
+      console.error('Ошибка при загрузке статистики:', err);
+      setError('Не удалось загрузить статистику. Попробуйте позже.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  useEffect(() => {
     loadStats();
+    
+    // Подписываемся на обновление статистики
+    socket.on('stats:updated', () => {
+      console.log('Получено событие обновления статистики, обновляем данные');
+      loadStats();
+    });
+    
+    return () => {
+      // Отписываемся при размонтировании компонента
+      socket.off('stats:updated');
+    };
   }, [userId]);
   
   // Подготовка данных для графиков

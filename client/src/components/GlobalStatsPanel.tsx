@@ -157,6 +157,35 @@ export const GlobalStatsPanel = () => {
         </div>
       </div>
       
+      {/* Вторая строка статистики */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        {/* Изменения голосов после раскрытия */}
+        <div className="bg-gray-700 rounded-lg p-4">
+          <h3 className="text-gray-400 text-sm">Изменения оценки после раскрытия</h3>
+          <div className="flex justify-between items-end">
+            <div className="text-3xl font-bold text-white">
+              {stats?.votesStats.changedAfterReveal || 0}
+            </div>
+            <div className="text-sm text-gray-400">
+              {stats?.votesStats.total ? `${((stats.votesStats.changedAfterReveal / stats.votesStats.total) * 100).toFixed(1)}% от всех голосов` : '0%'}
+            </div>
+          </div>
+        </div>
+        
+        {/* Активность пользователей */}
+        <div className="bg-gray-700 rounded-lg p-4">
+          <h3 className="text-gray-400 text-sm">Активность пользователей</h3>
+          <div className="flex justify-between items-end">
+            <div className="text-3xl font-bold text-white">
+              {stats?.activeUsers || 0}
+            </div>
+            <div className="text-sm text-gray-400">
+              из {stats?.totalUsers || 0} зарегистрированных
+            </div>
+          </div>
+        </div>
+      </div>
+      
       {/* Согласованность команды */}
       <div className="mt-6">
         <h3 className="text-gray-400 text-sm mb-2">Согласованность команды</h3>

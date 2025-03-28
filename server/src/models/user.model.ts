@@ -27,7 +27,6 @@ const UserSchema = new Schema<UserDocument>({
   login: { 
     type: String, 
     required: true, 
-    unique: true, 
     trim: true,
     minlength: 3,
     maxlength: 30
