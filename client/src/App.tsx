@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AuthPage } from './components/auth/AuthPage';
 import { GameBoard } from './components/GameBoard';
-import { GlobalStatsPanel } from './components/GlobalStatsPanel';
 import { Header } from './components/Header';
 import { ProfilePage } from './components/profile/ProfilePage';
 import { animateEmojisFalling } from './components/UserCardEffects';
@@ -9,6 +8,9 @@ import useSocket from './hooks/useSocket';
 import { authService } from './services/auth.service';
 import type { GameState } from './types';
 import { AVAILABLE_EMOJIS, FIBONACCI_SEQUENCE } from './types';
+
+// Константа для ключа в localStorage
+const SELECTED_EMOJI_KEY = 'scrum_poker_selected_emoji';
 
 // Начальное состояние игры
 const initialGameState: GameState = {
@@ -59,7 +61,23 @@ function App() {
     time: number;
     data: any;
   }>>([]);
-  const [selectedEmoji, setSelectedEmoji] = useState<string>(AVAILABLE_EMOJIS[0]);
+  
+  // Получаем сохраненный эмодзи из localStorage или используем первый из списка
+  const getSavedEmoji = (): string => {
+    const savedEmoji = localStorage.getItem(SELECTED_EMOJI_KEY);
+    if (savedEmoji && AVAILABLE_EMOJIS.includes(savedEmoji)) {
+      return savedEmoji;
+    }
+    return AVAILABLE_EMOJIS[0];
+  };
+  
+  const [selectedEmoji, setSelectedEmoji] = useState<string>(getSavedEmoji());
+  
+  // Обработчик изменения эмодзи с сохранением в localStorage
+  const handleEmojiChange = (emoji: string) => {
+    setSelectedEmoji(emoji);
+    localStorage.setItem(SELECTED_EMOJI_KEY, emoji);
+  };
 
   // Выделяем функции обработки анимаций
   const handleEmojiThrown = useCallback(({ targetId, emoji, trajectory, placement }: EmojiThrowData) => {
@@ -556,7 +574,7 @@ function App() {
           onReset={handleReset}
           onResetUsers={() => socket?.emit('users:reset')}
           selectedEmoji={selectedEmoji}
-          onSelectEmoji={setSelectedEmoji}
+          onSelectEmoji={handleEmojiChange}
         />
       )}
       <div className="flex-grow">
@@ -574,9 +592,6 @@ function App() {
           sequence={FIBONACCI_SEQUENCE}
           selectedEmoji={selectedEmoji}
         />
-        <div className="container mx-auto px-4">
-          <GlobalStatsPanel />
-        </div>
       </div>
     </div>
   );

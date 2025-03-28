@@ -4,6 +4,7 @@ import { GameState } from '../types';
 import { AverageScore } from './AverageScore';
 import { ConfirmDialog } from './ConfirmDialog';
 import { ErrorMessage } from './ErrorMessage';
+import { GlobalStatsPanel } from './GlobalStatsPanel';
 import { UserCard } from './UserCard';
 import { VoteChangeAlert } from './VoteChangeAlert';
 import { VotingPanel } from './VotingPanel';
@@ -144,6 +145,10 @@ export function GameBoard({
           sequence={sequence}
           onCoffeeEasterEgg={handleCoffeeEasterEgg}
         />
+        
+        <div className="mt-8 mb-8">
+          <GlobalStatsPanel />
+        </div>
 
         {/* Диалоговое окно подтверждения вскрытия карт */}
         <ConfirmDialog
