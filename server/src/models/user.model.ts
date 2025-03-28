@@ -11,6 +11,7 @@ export interface UserDocument extends Document {
   lastLoginAt: Date;
   lastActivityAt: Date;
   createdAt: Date;
+  name?: string;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -58,6 +59,11 @@ const UserSchema = new Schema<UserDocument>({
   }
 });
 
+// Виртуальное свойство name для совместимости с существующим кодом
+UserSchema.virtual('name').get(function(this: UserDocument) {
+  return this.username;
+});
+
 // Метод для сравнения пароля с хешем
 UserSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
   return bcrypt.compare(candidatePassword, this.password);
@@ -82,6 +88,16 @@ UserSchema.pre('save', async function(next) {
 UserSchema.index({ username: 1 });
 UserSchema.index({ login: 1 });
 UserSchema.index({ lastActivityAt: -1 });
+
+// Настройка для включения виртуальных полей в объекты JSON
+UserSchema.set('toJSON', {
+  virtuals: true,
+  versionKey: false,
+  transform: function(_doc, ret) {
+    delete ret.password;
+    return ret;
+  }
+});
 
 // Создание модели
 export const User = mongoose.model<UserDocument>('User', UserSchema); 

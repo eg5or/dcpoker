@@ -87,8 +87,30 @@ export class StatsService {
    */
   static async updateEmojiStats(senderId: string, targetId: string, emoji: string): Promise<void> {
     try {
-      const senderObjectId = new mongoose.Types.ObjectId(senderId);
-      const targetObjectId = new mongoose.Types.ObjectId(targetId);
+      let senderObjectId;
+      let targetObjectId;
+      
+      // Проверяем, что ID имеют правильный формат для ObjectId
+      try {
+        // Проверяем формат senderId
+        if (senderId && senderId.match(/^[0-9a-fA-F]{24}$/)) {
+          senderObjectId = new mongoose.Types.ObjectId(senderId);
+        } else {
+          console.log(`Неверный формат senderId: ${senderId}, пропускаем обновление статистики`);
+          return;
+        }
+        
+        // Проверяем формат targetId
+        if (targetId && targetId.match(/^[0-9a-fA-F]{24}$/)) {
+          targetObjectId = new mongoose.Types.ObjectId(targetId);
+        } else {
+          console.log(`Неверный формат targetId: ${targetId}, пропускаем обновление статистики`);
+          return;
+        }
+      } catch (error) {
+        console.error('Ошибка при создании ObjectId:', error);
+        return; // Прекращаем выполнение функции
+      }
       
       // Обновляем статистику отправителя
       let senderStats = await UserStats.findOne({ userId: senderObjectId });
@@ -96,33 +118,46 @@ export class StatsService {
         senderStats = await this.getUserStats(senderId);
       }
       
-      // Обновляем информацию об отправленных эмодзи
-      const sentEmojiIndex = senderStats.emojisStats.sent.findIndex(e => e.emoji === emoji);
-      if (sentEmojiIndex !== -1) {
-        senderStats.emojisStats.sent[sentEmojiIndex].count += 1;
+      // Проверяем, что senderStats не null
+      if (senderStats) {
+        // Обновляем информацию об отправленных эмодзи
+        const sentEmojiIndex = senderStats.emojisStats.sent.findIndex(e => e.emoji === emoji);
+        if (sentEmojiIndex !== -1) {
+          senderStats.emojisStats.sent[sentEmojiIndex].count += 1;
+        } else {
+          senderStats.emojisStats.sent.push({ emoji, count: 1 });
+        }
+        
+        senderStats.lastUpdated = new Date();
+        await senderStats.save();
       } else {
-        senderStats.emojisStats.sent.push({ emoji, count: 1 });
+        console.log(`Не удалось получить статистику для отправителя: ${senderId}`);
       }
       
-      senderStats.lastUpdated = new Date();
-      await senderStats.save();
-      
-      // Обновляем статистику получателя
-      let targetStats = await UserStats.findOne({ userId: targetObjectId });
-      if (!targetStats) {
-        targetStats = await this.getUserStats(targetId);
+      // Если targetId отличается от senderId, обновляем статистику получателя
+      if (targetId !== senderId) {
+        // Обновляем статистику получателя
+        let targetStats = await UserStats.findOne({ userId: targetObjectId });
+        if (!targetStats) {
+          targetStats = await this.getUserStats(targetId);
+        }
+        
+        // Проверяем, что targetStats не null
+        if (targetStats) {
+          // Обновляем информацию о полученных эмодзи
+          const receivedEmojiIndex = targetStats.emojisStats.received.findIndex(e => e.emoji === emoji);
+          if (receivedEmojiIndex !== -1) {
+            targetStats.emojisStats.received[receivedEmojiIndex].count += 1;
+          } else {
+            targetStats.emojisStats.received.push({ emoji, count: 1 });
+          }
+          
+          targetStats.lastUpdated = new Date();
+          await targetStats.save();
+        } else {
+          console.log(`Не удалось получить статистику для получателя: ${targetId}`);
+        }
       }
-      
-      // Обновляем информацию о полученных эмодзи
-      const receivedEmojiIndex = targetStats.emojisStats.received.findIndex(e => e.emoji === emoji);
-      if (receivedEmojiIndex !== -1) {
-        targetStats.emojisStats.received[receivedEmojiIndex].count += 1;
-      } else {
-        targetStats.emojisStats.received.push({ emoji, count: 1 });
-      }
-      
-      targetStats.lastUpdated = new Date();
-      await targetStats.save();
       
       // Обновляем глобальную статистику эмодзи
       await this.updateGlobalEmojiStats(emoji);
@@ -142,28 +177,33 @@ export class StatsService {
         globalStats = await this.getGlobalStats();
       }
       
-      // Увеличиваем общее количество эмодзи
-      globalStats.emojisStats.total += 1;
-      
-      // Обновляем топ эмодзи
-      const emojiIndex = globalStats.emojisStats.topEmojis.findIndex(e => e.emoji === emoji);
-      if (emojiIndex !== -1) {
-        globalStats.emojisStats.topEmojis[emojiIndex].count += 1;
+      // Проверяем, что globalStats не null перед обновлением
+      if (globalStats) {
+        // Увеличиваем общее количество эмодзи
+        globalStats.emojisStats.total += 1;
         
-        // Сортируем по количеству
-        globalStats.emojisStats.topEmojis.sort((a, b) => b.count - a.count);
-      } else {
-        globalStats.emojisStats.topEmojis.push({ emoji, count: 1 });
-        
-        // Если в топе больше 10 эмодзи, удаляем самый редкий
-        if (globalStats.emojisStats.topEmojis.length > 10) {
+        // Обновляем топ эмодзи
+        const emojiIndex = globalStats.emojisStats.topEmojis.findIndex(e => e.emoji === emoji);
+        if (emojiIndex !== -1) {
+          globalStats.emojisStats.topEmojis[emojiIndex].count += 1;
+          
+          // Сортируем по количеству
           globalStats.emojisStats.topEmojis.sort((a, b) => b.count - a.count);
-          globalStats.emojisStats.topEmojis = globalStats.emojisStats.topEmojis.slice(0, 10);
+        } else {
+          globalStats.emojisStats.topEmojis.push({ emoji, count: 1 });
+          
+          // Если в топе больше 10 эмодзи, удаляем самый редкий
+          if (globalStats.emojisStats.topEmojis.length > 10) {
+            globalStats.emojisStats.topEmojis.sort((a, b) => b.count - a.count);
+            globalStats.emojisStats.topEmojis = globalStats.emojisStats.topEmojis.slice(0, 10);
+          }
         }
+        
+        globalStats.lastUpdated = new Date();
+        await globalStats.save();
+      } else {
+        console.error('Не удалось получить или создать глобальную статистику');
       }
-      
-      globalStats.lastUpdated = new Date();
-      await globalStats.save();
     } catch (error) {
       console.error('Ошибка при обновлении глобальной статистики эмодзи:', error);
       throw error;

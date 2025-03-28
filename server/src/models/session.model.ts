@@ -13,7 +13,7 @@ export interface Vote {
 // Интерфейс для эмодзи в сессии
 export interface SessionEmoji {
   senderId: mongoose.Types.ObjectId;
-  targetId: mongoose.Types.ObjectId;
+  targetId: mongoose.Types.ObjectId | string;
   senderName: string;
   targetName: string;
   emoji: string;
@@ -55,7 +55,17 @@ const VoteSchema = new Schema<Vote>({
 // Схема для эмодзи в сессии
 const SessionEmojiSchema = new Schema<SessionEmoji>({
   senderId: { type: Schema.Types.ObjectId, required: true, ref: 'User' },
-  targetId: { type: Schema.Types.ObjectId, required: true, ref: 'User' },
+  targetId: { 
+    type: Schema.Types.Mixed, 
+    required: true,
+    validate: {
+      validator: function(v: any) {
+        // Валидируем, что targetId - либо ObjectId, либо строка
+        return mongoose.Types.ObjectId.isValid(v) || (typeof v === 'string' && v.length > 0);
+      },
+      message: 'targetId должен быть валидным ObjectId или непустой строкой'
+    }
+  },
   senderName: { type: String, required: true },
   targetName: { type: String, required: true },
   emoji: { type: String, required: true },
