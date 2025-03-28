@@ -91,19 +91,10 @@ export function GameBoard({
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 p-4 sm:p-6 md:p-8 pt-24 sm:pt-28">
+    <div className="min-h-screen bg-gray-900 p-4 sm:p-6 md:p-8">
       <ErrorMessage message={error} />
       
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-6">
-          <h1 className="text-2xl md:text-3xl text-white font-bold mb-2">
-            Scrum Poker
-            <span className="text-xs md:text-sm text-gray-400 font-mono ml-1 md:ml-2 select-none">
-              by eg5or &amp; <span className="text-blue-400">Cursor AI</span>
-            </span>
-          </h1>
-        </div>
-
         <VoteChangeAlert
           changedUsers={gameState.usersChangedVoteAfterReveal}
           onRecalculate={onRecalculateAverage}

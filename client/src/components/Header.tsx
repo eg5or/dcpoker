@@ -30,53 +30,56 @@ export const Header = ({
   };
   
   return (
-    <header className="bg-gray-800 text-white shadow-md fixed top-0 left-0 right-0 z-50">
+    <header className="bg-gray-800 text-white shadow-md sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-        <div className="flex items-center">
+        <div className="flex flex-col items-start mr-4">
           <h1 className="text-xl font-bold">Scrum Poker</h1>
+          <span className="text-xs text-gray-400 font-mono select-none">
+            by eg5or &amp; <span className="text-blue-400">Cursor AI</span>
+          </span>
+        </div>
+        
+        {/* Кнопки управления игрой */}
+        <div className="hidden sm:flex items-center space-x-2 mr-auto">
+          <Tooltip content="Показать карты">
+            <button
+              onClick={onReveal}
+              className="p-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+              aria-label="Показать карты"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </Tooltip>
+          
+          <Tooltip content="Начать новое голосование">
+            <button
+              onClick={onReset}
+              className="p-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+              aria-label="Начать новое голосование"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </Tooltip>
+          
+          <Tooltip content="Сбросить всех пользователей">
+            <button
+              onClick={onResetUsers}
+              className="p-2 bg-red-700 text-white rounded hover:bg-red-800 transition-colors"
+              aria-label="Сбросить всех пользователей"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+              </svg>
+            </button>
+          </Tooltip>
         </div>
         
         <div className="flex items-center space-x-3">
-          {/* Кнопки управления игрой */}
-          <div className="hidden sm:flex items-center space-x-2">
-            <Tooltip content="Показать карты">
-              <button
-                onClick={onReveal}
-                className="p-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
-                aria-label="Показать карты"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                  <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-                </svg>
-              </button>
-            </Tooltip>
-            
-            <Tooltip content="Начать новое голосование">
-              <button
-                onClick={onReset}
-                className="p-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-                aria-label="Начать новое голосование"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-                </svg>
-              </button>
-            </Tooltip>
-            
-            <Tooltip content="Сбросить всех пользователей">
-              <button
-                onClick={onResetUsers}
-                className="p-2 bg-red-700 text-white rounded hover:bg-red-800 transition-colors"
-                aria-label="Сбросить всех пользователей"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
-                </svg>
-              </button>
-            </Tooltip>
-          </div>
-          
           {/* Выбор эмодзи */}
           <div className="hidden md:flex items-center bg-gray-700 p-1.5 rounded-lg">
             <p className="text-white mr-2 text-sm whitespace-nowrap">Эмодзи:</p>
