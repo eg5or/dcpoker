@@ -64,7 +64,7 @@ class AuthService {
       const response = await fetch(`${this.baseUrl}/auth/login`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({ login, password })
       });
@@ -98,7 +98,7 @@ class AuthService {
       const response = await fetch(`${this.baseUrl}/auth/register`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({ name, login, password })
       });
@@ -167,7 +167,7 @@ class AuthService {
     const response = await fetch(`${this.baseUrl}/auth/me`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${this.token}`
+        'Authorization': `Bearer ${this.token}`,
       }
     });
 

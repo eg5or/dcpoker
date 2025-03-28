@@ -24,13 +24,30 @@ const httpServer = createServer(app);
 
 // Получаем origins из env и преобразуем в массив
 const corsOrigins = process.env.CORS_ORIGINS?.split(',') || ["http://localhost:5173"];
+console.log('Разрешенные CORS домены:', corsOrigins);
 
-// Настройка middleware для Express
+// Настройка middleware для Express с более строгими правилами CORS
 app.use(cors({
-  origin: corsOrigins,
+  origin: function(origin, callback) {
+    // Для режима разработки и инструментов без origin
+    if (!origin) {
+      console.log('Запрос без origin (локальный инструмент или разработка)');
+      // В продакшене мы можем быть более строгими здесь, но для разработки разрешаем
+      return callback(null, true);
+    }
+    
+    // Проверяем, находится ли origin в списке разрешенных
+    if (corsOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.error(`CORS блокировка: ${origin} не в списке разрешенных доменов`);
+      callback(new Error('Не разрешено политикой CORS'), false);
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept'],
+  exposedHeaders: ['Content-Length', 'Content-Range']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -41,9 +58,25 @@ app.use('/api/stats', statsRoutes);
 
 const io = new Server(httpServer, {
   cors: {
-    origin: corsOrigins,
+    origin: function(origin, callback) {
+      // Для режима разработки и инструментов без origin
+      if (!origin) {
+        console.log('Socket.IO запрос без origin (локальный инструмент или разработка)');
+        // В продакшене мы можем быть более строгими здесь, но для разработки разрешаем
+        return callback(null, true);
+      }
+      
+      // Проверяем, находится ли origin в списке разрешенных
+      if (corsOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        console.error(`Socket.IO CORS блокировка: ${origin} не в списке разрешенных доменов`);
+        callback(new Error('Не разрешено политикой CORS'), false);
+      }
+    },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    credentials: true
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept']
   },
   allowEIO3: true,
   transports: ['websocket', 'polling'],

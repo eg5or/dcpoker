@@ -12,7 +12,10 @@ const options = {
   reconnectionAttempts: 5,
   reconnectionDelay: 1000,
   timeout: 5000,
-  transports: ['websocket', 'polling'] // Добавляем fallback на polling
+  transports: ['websocket', 'polling'], // Добавляем fallback на polling
+  extraHeaders: {
+    'Authorization': `Bearer ${authService.getToken()}`
+  }
 };
 
 // Создаем и экспортируем экземпляр сокета, который можно использовать напрямую
