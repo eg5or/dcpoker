@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AuthPage } from './components/auth/AuthPage';
 import { GameBoard } from './components/GameBoard';
+import { GlobalStatsPanel } from './components/GlobalStatsPanel';
+import { Header } from './components/Header';
+import { ProfilePage } from './components/profile/ProfilePage';
 import { animateEmojisFalling } from './components/UserCardEffects';
 import useSocket from './hooks/useSocket';
 import { authService } from './services/auth.service';
@@ -41,6 +44,7 @@ function App() {
   const [isConnecting, setIsConnecting] = useState(isAuthenticated);
   const [error, setError] = useState<string | null>(null);
   const [currentVote, setCurrentVote] = useState<number | null>(null);
+  const [showProfile, setShowProfile] = useState(false);
   const [gameState, setGameState] = useState<GameState>({
     users: [],
     isRevealed: false,
@@ -371,12 +375,9 @@ function App() {
   const handleLogin = async (login: string, password: string) => {
     try {
       setError(null);
-      // Сбрасываем флаг соединения при входе, но не переходим на экран загрузки сразу
-      // setIsConnecting(true);
       const userData = await authService.login(login, password);
       setIsAuthenticated(true);
       setUser(userData);
-      // Только после успешной авторизации показываем экран подключения
       setIsConnecting(true);
     } catch (err) {
       if (err instanceof Error) {
@@ -390,12 +391,9 @@ function App() {
   const handleRegister = async (displayName: string, login: string, password: string) => {
     try {
       setError(null);
-      // Сбрасываем флаг соединения при регистрации, но не переходим на экран загрузки сразу
-      // setIsConnecting(true);
       const userData = await authService.register(displayName, login, password);
       setIsAuthenticated(true);
       setUser(userData);
-      // Только после успешной регистрации показываем экран подключения
       setIsConnecting(true);
     } catch (err) {
       if (err instanceof Error) {
@@ -457,6 +455,7 @@ function App() {
     setCurrentVote(null);
     setIsAuthenticated(false);
     setUser(null);
+    setShowProfile(false);
     
     // Затем очищаем хранилище и токен
     authService.logout();
@@ -466,6 +465,14 @@ function App() {
     if (connectionFailed) {
       window.location.reload();
     }
+  };
+
+  const handleProfileClick = () => {
+    setShowProfile(true);
+  };
+
+  const handleBackFromProfile = () => {
+    setShowProfile(false);
   };
 
   if (isConnecting) {
@@ -507,6 +514,17 @@ function App() {
     );
   }
 
+  // Показываем страницу профиля, если она активна
+  if (showProfile && user) {
+    return (
+      <ProfilePage
+        userName={user.name}
+        userId={user.id}
+        onBack={handleBackFromProfile}
+      />
+    );
+  }
+
   if (!isJoined) {
     // Автоматически присоединяемся к игре с именем из профиля
     if (user && socket) {
@@ -522,20 +540,34 @@ function App() {
   }
 
   return (
-    <GameBoard
-      socket={socket}
-      currentVote={currentVote}
-      gameState={gameState}
-      error={error}
-      onVote={handleVote}
-      onReveal={handleReveal}
-      onReset={handleReset}
-      onResetUsers={() => socket?.emit('users:reset')}
-      onRecalculateAverage={handleRecalculateAverage}
-      onThrowEmoji={handleThrowEmoji}
-      sequence={FIBONACCI_SEQUENCE}
-      onLogout={logout}
-    />
+    <div className="flex flex-col min-h-screen bg-gray-900">
+      {user && (
+        <Header
+          userName={user.name}
+          onLogout={logout}
+          onProfileClick={handleProfileClick}
+        />
+      )}
+      <div className="flex-grow">
+        <GameBoard
+          socket={socket}
+          currentVote={currentVote}
+          gameState={gameState}
+          error={error}
+          onVote={handleVote}
+          onReveal={handleReveal}
+          onReset={handleReset}
+          onResetUsers={() => socket?.emit('users:reset')}
+          onRecalculateAverage={handleRecalculateAverage}
+          onThrowEmoji={handleThrowEmoji}
+          sequence={FIBONACCI_SEQUENCE}
+          onLogout={logout}
+        />
+        <div className="container mx-auto px-4">
+          <GlobalStatsPanel />
+        </div>
+      </div>
+    </div>
   );
 }
 

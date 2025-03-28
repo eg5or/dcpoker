@@ -7,6 +7,7 @@ import { connectDB } from './config/db';
 import { verifyToken } from './config/jwt';
 import { User } from './models/user.model';
 import authRoutes from './routes/auth.routes';
+import statsRoutes from './routes/stats.routes';
 
 // Загружаем переменные окружения
 dotenv.config();
@@ -32,6 +33,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Подключаем маршруты аутентификации
 app.use('/api/auth', authRoutes);
+app.use('/api/stats', statsRoutes);
 
 const io = new Server(httpServer, {
   cors: {
