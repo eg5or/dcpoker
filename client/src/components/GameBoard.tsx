@@ -31,7 +31,6 @@ export function GameBoard({
   error,
   onVote,
   onReveal,
-  onReset,
   onResetUsers,
   onRecalculateAverage,
   onThrowEmoji,
@@ -47,36 +46,6 @@ export function GameBoard({
   useEffect(() => {
     setPrevGameState(gameState);
   }, [gameState]);
-
-  // Обработчик для сброса с анимацией
-  const handleReset = () => {
-    // Сбрасываем пасхалку при сбросе голосов
-    setEasterEggState('reset');
-    onReset();
-  };
-
-  // Проверка, все ли онлайн пользователи проголосовали
-  const checkAllOnlineUsersVoted = () => {
-    const onlineUsers = gameState.users.filter(user => user.isOnline);
-    const onlineUsersWithVotes = onlineUsers.filter(user => user.vote !== null);
-    return onlineUsersWithVotes.length === onlineUsers.length;
-  };
-
-  // Обработчик для кнопки "Показать карты"
-  const handleRevealRequest = () => {
-    if (checkAllOnlineUsersVoted()) {
-      // Если все проголосовали, сразу показываем карты
-      onReveal();
-    } else {
-      // Иначе показываем диалог подтверждения
-      setConfirmRevealDialogOpen(true);
-    }
-  };
-
-  // Обработчик для кнопки "Сбросить всех пользователей"
-  const handleResetUsersRequest = () => {
-    setConfirmResetUsersDialogOpen(true);
-  };
 
   // Обработчик для пасхалки с кофе
   const handleCoffeeEasterEgg = (state: 'tilt' | 'fall' | 'shatter' | 'reset') => {

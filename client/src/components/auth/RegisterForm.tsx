@@ -24,7 +24,6 @@ export function RegisterForm({ onRegister, onSwitchToLogin, error }: RegisterFor
   useEffect(() => {
     // Используем правильный подсчёт символов для эмодзи
     const passwordEmojiCount = [...password].length;
-    const confirmPasswordEmojiCount = [...confirmPassword].length;
     
     // Если пароль теперь корректный, сбрасываем ошибку пароля
     if (password && passwordEmojiCount === 3 && formErrors?.password) {
