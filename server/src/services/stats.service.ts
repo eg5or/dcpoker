@@ -592,6 +592,51 @@ export class StatsService {
       let globalStats = await GlobalStats.findOne();
       
       if (globalStats) {
+        // Проверяем, обрабатывалась ли эта сессия ранее для обновления общих счетчиков
+        const processedSessionIds = globalStats.get('processedSessionIds') || [];
+        
+        // Если сессия еще не была обработана, обновляем общие счетчики
+        if (!processedSessionIds.includes(sessionId)) {
+          console.log(`Сессия ${sessionId} еще не учтена в глобальной статистике, обновляем общие счетчики`);
+          
+          // Инкрементируем счетчик сессий
+          globalStats.totalSessions += 1;
+          
+          // Если сессия была завершена, увеличиваем счетчик завершенных сессий
+          if (session.status === 'completed') {
+            globalStats.completedSessions += 1;
+          }
+          
+          // Собираем статистику по голосам
+          const validVotes = session.votes.filter((vote: any) => vote.initialVote !== null && typeof vote.initialVote === 'number');
+          
+          // Обновляем общее количество голосов
+          globalStats.votesStats.total += validVotes.length;
+          
+          // Обновляем среднее количество голосов на сессию
+          globalStats.votesStats.averagePerSession = parseFloat(
+            (globalStats.votesStats.total / globalStats.totalSessions).toFixed(2)
+          );
+          
+          // Обновляем статистику по оценкам
+          for (const vote of validVotes as Array<{ initialVote: number }>) {
+            const voteValue = vote.initialVote;
+            const voteIndex = globalStats.votesStats.values.findIndex((v: { value: number }) => v.value === voteValue);
+            
+            if (voteIndex !== -1) {
+              globalStats.votesStats.values[voteIndex].count += 1;
+            } else {
+              globalStats.votesStats.values.push({ value: voteValue, count: 1 });
+            }
+          }
+          
+          // Добавляем идентификатор обработанной сессии
+          processedSessionIds.push(sessionId);
+          globalStats.set('processedSessionIds', processedSessionIds);
+          
+          console.log(`Глобальная статистика обновлена для новой сессии ${sessionId}. Всего сессий: ${globalStats.totalSessions}`);
+        }
+        
         // Подсчитываем новые изменённые голоса, которые еще не были учтены
         const uncountedChanges = changedVotes.filter((vote: any) => !vote.changedAfterRevealCounted).length;
         
@@ -620,6 +665,54 @@ export class StatsService {
     } catch (error) {
       console.error('Ошибка при обновлении статистики изменённых голосов:', error);
       throw error;
+    }
+  }
+  
+  /**
+   * Сброс и полный пересчет глобальной статистики changedAfterReveal
+   * Это позволит исправить существующую проблему с нулевым значением
+   */
+  static async recalculateGlobalChangedVotes(): Promise<void> {
+    try {
+      // Получаем глобальную статистику
+      let globalStats = await GlobalStats.findOne();
+      if (!globalStats) {
+        console.log('Глобальная статистика не найдена для пересчета');
+        return;
+      }
+      
+      // Получаем сумму changedAfterReveal из всех записей UserStats
+      const userStatsAggregation = await UserStats.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalChangedVotes: { $sum: '$votesStats.changedAfterReveal' }
+          }
+        }
+      ]);
+      
+      if (userStatsAggregation.length > 0) {
+        const totalChangedVotes = userStatsAggregation[0].totalChangedVotes;
+        console.log(`Пересчитано общее количество изменённых голосов: ${totalChangedVotes}`);
+        
+        // Обновляем глобальную статистику
+        globalStats.votesStats.changedAfterReveal = totalChangedVotes;
+        globalStats.lastUpdated = new Date();
+        await globalStats.save();
+        
+        console.log(`Глобальная статистика changedAfterReveal обновлена: ${totalChangedVotes}`);
+        
+        // Оповещаем клиентов об обновлении
+        try {
+          const io = ioModule.getIO();
+          io.emit('stats:updated');
+          console.log('Отправлено событие stats:updated после пересчета');
+        } catch (error) {
+          console.error('Ошибка при отправке события stats:updated:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Ошибка при пересчете глобальной статистики changedAfterReveal:', error);
     }
   }
 }

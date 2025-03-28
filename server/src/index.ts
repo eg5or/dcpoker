@@ -129,63 +129,59 @@ async function createOrUpdateVotingSession(initialCreatorId?: string): Promise<V
   }
 }
 
-// Функция для обновления сессии при раскрытии карт
-async function updateSessionOnReveal() {
+// Обновляет текущую сессию при раскрытии карт
+async function updateSessionOnReveal(): Promise<void> {
+  if (!currentSession) {
+    console.error('Нет текущей сессии для обновления при раскрытии карт');
+    return;
+  }
+
   try {
-    if (!currentSession) return;
+    const votes = [];
     
-    const votes = currentSession.get('votes') || [];
-    
-    // Добавляем голоса текущих пользователей, если их еще нет
+    // Собираем актуальные голоса для сессии
     for (const user of gameState.users) {
       if (user.vote !== null) {
-        // Проверяем, есть ли уже голос этого пользователя
-        const existingVoteIndex = votes.findIndex((v: any) => {
-          if (!v || !v.userId) return false;
-          
-          if (typeof v.userId === 'string') {
-            return v.userId === user.id;
-          } else if (v.userId.toString) {
-            return v.userId.toString() === user.id;
-          }
-          return false;
-        });
+        let userId: string | mongoose.Types.ObjectId = user.id;
         
-        if (existingVoteIndex === -1) {
-          // Если голоса нет, добавляем новый
-          // Используем ID пользователя из gameState, поскольку мы не имеем доступа к socket здесь
-          votes.push({
-            userId: user.id,
-            username: user.name,
-            initialVote: user.vote,
-            finalVote: user.vote,
-            changedAfterReveal: false,
-            votedAt: new Date()
-          });
+        // Если пользователь аутентифицирован, используем его MongoDB ID
+        const socket = Array.from(io.sockets.sockets.values())
+          .find(s => (s as any).id === user.id) as AuthenticatedSocket | undefined;
+        
+        if (socket?.user?.id) {
+          userId = new mongoose.Types.ObjectId(socket.user.id);
         }
+        
+        votes.push({
+          userId,
+          username: user.name,
+          initialVote: user.vote,
+          finalVote: user.vote,
+          changedAfterReveal: false,
+          votedAt: new Date()
+        });
       }
     }
     
-    // Обновляем статус и данные сессии
+    // Обновляем поля сессии
     currentSession.set({
-      votes,
       wasRevealed: true,
-      revealedAt: new Date(),
+      votes,
       averageVote: gameState.averageVote,
-      consistency: gameState.consistency ? {
-        emoji: gameState.consistency.emoji,
-        description: gameState.consistency.description
-      } : null
+      consistency: gameState.consistency,
+      revealedAt: new Date()
     });
     
     await currentSession.save();
+    console.log('Сессия обновлена при раскрытии карт:', currentSession._id);
     
-    // Обновляем статистику при раскрытии карт
+    // Обновляем статистику сессии для увеличения общего количества голосований
     await StatsService.updateSessionStats(currentSession._id.toString());
     
-    console.log('Обновлена сессия голосования при раскрытии карт:', currentSession._id);
+    // Обновляем глобальную статистику для гарантии актуальных данных
+    await StatsService.recalculateGlobalChangedVotes();
   } catch (error) {
-    console.error('Ошибка при обновлении сессии голосования:', error);
+    console.error('Ошибка при обновлении сессии после раскрытия карт:', error);
   }
 }
 
@@ -555,17 +551,34 @@ io.on('connection', (socket: AuthenticatedSocket) => {
         // Обновляем финальные голоса и помечаем изменённые
         for (const user of gameState.users) {
           if (user.vote !== null) {
+            // Определяем userId для поиска в базе данных
+            let searchUserId: string | mongoose.Types.ObjectId = user.id;
+            
+            // Если пользователь аутентифицирован, используем его MongoDB ID
+            const userSocket = Array.from(io.sockets.sockets.values())
+              .find(s => (s as any).id === user.id) as AuthenticatedSocket | undefined;
+            
+            if (userSocket?.user?.id) {
+              searchUserId = new mongoose.Types.ObjectId(userSocket.user.id);
+            }
+            
+            // Ищем голос пользователя
             const voteIndex = votes.findIndex((v: any) => {
               if (!v || !v.userId) return false;
               
-              // Безопасный поиск
-              if (typeof v.userId === 'string') {
-                return v.userId === user.id;
-              } else if (v.userId.toString) {
-                return v.userId.toString() === user.id;
+              // Проверяем соответствие userId с учетом разных типов
+              if (typeof v.userId === 'string' && typeof searchUserId === 'string') {
+                return v.userId === searchUserId;
+              } else if (typeof v.userId === 'string' && typeof searchUserId !== 'string') {
+                return v.userId === searchUserId.toString();
+              } else if (typeof v.userId !== 'string' && typeof searchUserId === 'string') {
+                return v.userId.toString() === searchUserId;
+              } else {
+                return v.userId.toString() === searchUserId.toString();
               }
-              return false;
             });
+            
+            console.log(`Поиск голоса для пользователя ${user.name}: найден индекс ${voteIndex}`);
             
             if (voteIndex !== -1) {
               // Проверяем, изменился ли голос
@@ -574,11 +587,14 @@ io.on('connection', (socket: AuthenticatedSocket) => {
                 if (!votes[voteIndex].changedAfterReveal) {
                   votes[voteIndex].changedAfterReveal = true;
                   hasChangedVotes = true;
+                  console.log(`Обнаружено изменение голоса для ${user.name}: ${votes[voteIndex].initialVote} -> ${user.vote}`);
                 }
               }
               
               // Обновляем финальное значение голоса
               votes[voteIndex].finalVote = user.vote;
+            } else {
+              console.log(`Не найден голос в БД для пользователя ${user.name} с ID ${searchUserId}`);
             }
           }
         }
@@ -595,12 +611,15 @@ io.on('connection', (socket: AuthenticatedSocket) => {
           });
           
           await currentSession.save();
+          console.log(`Сессия ${currentSession._id} обновлена с ${votes.filter((v: any) => v.changedAfterReveal).length} изменёнными голосами`);
           
-          // Если были изменения голосов, обновляем статистику
-          if (hasChangedVotes) {
-            console.log('Обнаружены изменения голосов, обновляем статистику');
-            await StatsService.updateVoteChangesStats(currentSession._id.toString());
-          }
+          // Обновляем статистику после пересчета средней оценки
+          console.log('Обновляем статистику после пересчета средней оценки');
+          await StatsService.updateVoteChangesStats(currentSession._id.toString());
+          
+          // Обновляем глобальную статистику сразу после обновления статистики пользователей
+          console.log('Обновляем глобальную статистику после пересчета');
+          await StatsService.recalculateGlobalChangedVotes();
         }
       }
       
@@ -679,4 +698,9 @@ const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log('CORS origins:', corsOrigins);
+  
+  // Пересчитываем глобальную статистику по изменениям голосов
+  StatsService.recalculateGlobalChangedVotes()
+    .then(() => console.log('Пересчет глобальной статистики изменённых голосов завершен'))
+    .catch(err => console.error('Ошибка при пересчете статистики:', err));
 }); 
