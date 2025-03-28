@@ -1,10 +1,14 @@
 import { io, Socket } from 'socket.io-client';
 import { authService } from './services/auth.service';
 
-// Определяем URL сервера
-const serverUrl = window.location.hostname === 'localhost' 
-  ? 'http://localhost:3001' 
-  : window.location.origin;
+// Определяем URL сервера из переменных окружения
+const serverUrl = import.meta.env.VITE_SOCKET_URL || 
+  (window.location.hostname === 'localhost' 
+    ? 'http://localhost:3001' 
+    : window.location.origin);
+
+// Важно: отладочный лог URL сервера для проверки корректности подключения
+console.log('Socket.IO подключение к:', serverUrl);
 
 // Настройки для сокета
 const options = {

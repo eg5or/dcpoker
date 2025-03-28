@@ -2,7 +2,12 @@ import { GlobalStats, UserStats } from '../types/stats';
 import { authService } from './auth.service';
 
 class StatsService {
-  private readonly API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+  private readonly API_URL: string;
+  
+  constructor() {
+    this.API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+    console.log('📊 Stats Service использует API URL:', this.API_URL);
+  }
   
   /**
    * Получить статистику текущего пользователя

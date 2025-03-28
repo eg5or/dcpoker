@@ -10,7 +10,12 @@ RUN npm install
 # Копирование кода приложения
 COPY . .
 
-# Сборка приложения
+# Создаем .env.production с переменными для сборки
+RUN echo "VITE_API_URL=http://eg5or.ru/api" > .env.production \
+    && echo "VITE_SOCKET_URL=http://eg5or.ru" >> .env.production \
+    && cat .env.production
+
+# Сборка приложения с использованием переменных окружения из .env.production
 RUN npm run build
 
 # Production stage с Nginx
