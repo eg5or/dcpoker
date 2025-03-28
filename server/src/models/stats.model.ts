@@ -45,6 +45,7 @@ export interface GlobalStatsDocument extends Document {
     total: number;
     topEmojis: EmojiStat[];
   };
+  processedSessionIds: string[]; // Список ID обработанных сессий для предотвращения дублирования
   lastUpdated: Date;
 }
 
@@ -93,6 +94,7 @@ const GlobalStatsSchema = new Schema<GlobalStatsDocument>({
     total: { type: Number, default: 0 },
     topEmojis: [EmojiStatSchema]
   },
+  processedSessionIds: { type: [String], default: [] }, // Список ID обработанных сессий
   lastUpdated: { type: Date, default: Date.now }
 });
 

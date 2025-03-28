@@ -11,6 +11,7 @@ import { User } from './models/user.model';
 import authRoutes from './routes/auth.routes';
 import statsRoutes from './routes/stats.routes';
 import { StatsService } from './services/stats.service';
+import { initializeIO } from './utils/io';
 
 // Загружаем переменные окружения
 dotenv.config();
@@ -49,6 +50,9 @@ const io = new Server(httpServer, {
   pingTimeout: parseInt(process.env.PING_TIMEOUT || '10000'),
   pingInterval: parseInt(process.env.PING_INTERVAL || '5000')
 });
+
+// Инициализируем io для использования в других модулях
+initializeIO(io);
 
 // Определяем интерфейс для сокета с пользовательскими данными
 interface AuthenticatedSocket extends Socket {
@@ -130,6 +134,9 @@ async function updateSessionOnReveal() {
   try {
     if (!currentSession) return;
     
+    // Проверяем, не была ли сессия уже раскрыта
+    const wasAlreadyRevealed = currentSession.get('wasRevealed') === true;
+    
     // Обновляем статус сессии
     currentSession.set({
       wasRevealed: true,
@@ -137,30 +144,32 @@ async function updateSessionOnReveal() {
       revealedAt: new Date()
     });
     
-    // Добавляем информацию о голосах
-    const votes = gameState.users
-      .filter(user => user.vote !== null)
-      .map(user => {
-        // Пытаемся найти сокет пользователя для получения его mongoose ObjectId
-        const userSocket = Array.from(io.sockets.sockets.values())
-          .find(s => (s as any).id === user.id) as AuthenticatedSocket | undefined;
-          
-        // Если пользователь аутентифицирован, используем его mongoose ID
-        const userId = userSocket?.user?.id 
-          ? new mongoose.Types.ObjectId(userSocket.user.id)
-          : new mongoose.Types.ObjectId(); // Резервный вариант
-          
-        return {
-          userId,
-          username: user.name,
-          initialVote: user.vote,
-          finalVote: user.vote,
-          votedAt: new Date(),
-          changedAfterReveal: false
-        };
-      });
-    
-    currentSession.set({ votes });
+    // Добавляем информацию о голосах только если они еще не добавлены
+    if (!wasAlreadyRevealed) {
+      const votes = gameState.users
+        .filter(user => user.vote !== null)
+        .map(user => {
+          // Пытаемся найти сокет пользователя для получения его mongoose ObjectId
+          const userSocket = Array.from(io.sockets.sockets.values())
+            .find(s => (s as any).id === user.id) as AuthenticatedSocket | undefined;
+            
+          // Если пользователь аутентифицирован, используем его mongoose ID
+          const userId = userSocket?.user?.id 
+            ? new mongoose.Types.ObjectId(userSocket.user.id)
+            : new mongoose.Types.ObjectId(); // Резервный вариант
+            
+          return {
+            userId,
+            username: user.name,
+            initialVote: user.vote,
+            finalVote: user.vote,
+            votedAt: new Date(),
+            changedAfterReveal: false
+          };
+        });
+      
+      currentSession.set({ votes });
+    }
     
     // Обновляем среднюю оценку и согласованность
     if (gameState.averageVote !== null && gameState.consistency) {
@@ -175,8 +184,16 @@ async function updateSessionOnReveal() {
     
     await currentSession.save();
     
-    // Обновляем статистику
-    await StatsService.updateSessionStats(currentSession._id.toString());
+    // Проверяем, не была ли статистика уже обработана для этой сессии
+    const statisticsProcessed = currentSession.get('statisticsProcessed') === true;
+    
+    // Обновляем статистику только если она еще не была обработана
+    if (!statisticsProcessed) {
+      console.log(`Обновление статистики для сессии ${currentSession._id}`);
+      await StatsService.updateSessionStats(currentSession._id.toString());
+    } else {
+      console.log(`Статистика для сессии ${currentSession._id} уже обработана, пропускаем`);
+    }
     
     console.log('Обновлена сессия голосования при раскрытии карт:', currentSession._id);
   } catch (error) {
@@ -214,8 +231,21 @@ async function completeCurrentSession() {
     
     await currentSession.save();
     
-    // Обновляем статистику ещё раз с финальными данными
-    await StatsService.updateSessionStats(currentSession._id.toString());
+    // Проверяем, обработана ли уже статистика для этой сессии
+    const statisticsProcessed = currentSession.get('statisticsProcessed') === true;
+    
+    // Если статистика еще не обработана, обновляем её
+    if (!statisticsProcessed) {
+      console.log(`Обновление статистики при завершении сессии ${currentSession._id}`);
+      await StatsService.updateSessionStats(currentSession._id.toString());
+    } else {
+      // Если статистика уже обработана, но сессия была "revealed" а не "completed"
+      // Обновляем только глобальную статистику с учетом статуса завершения
+      if (currentSession.get('status') === 'completed') {
+        console.log(`Обновление статуса завершения в глобальной статистике для сессии ${currentSession._id}`);
+        await StatsService.updateCompletedSessionStats(currentSession._id.toString());
+      }
+    }
     
     // Сбрасываем текущую сессию
     currentSession = null;

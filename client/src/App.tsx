@@ -322,6 +322,11 @@ function App() {
     socket.on('emojis:fall', handleEmojisfall);
     socket.on('emojis:reset', () => socket.emit('emojis:fall'));
     socket.on('emoji:thrown', handleSocketEmojiThrown);
+    socket.on('stats:updated', () => {
+      console.log('Получено обновление статистики');
+      // Можно здесь выполнить действия при обновлении статистики,
+      // но основное обновление происходит в компоненте GlobalStatsPanel
+    });
 
     // Отписываемся от событий при размонтировании или изменении сокета
     return () => {

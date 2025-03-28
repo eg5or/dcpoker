@@ -35,6 +35,7 @@ export interface VotingSessionDocument extends Document {
   votes: Vote[];
   emojis: SessionEmoji[];
   wasRevealed: boolean;
+  statisticsProcessed: boolean;
   averageVote?: number;
   consistency?: ConsistencyResult;
   createdAt: Date;
@@ -92,6 +93,7 @@ const VotingSessionSchema = new Schema<VotingSessionDocument>({
   votes: [VoteSchema],
   emojis: [SessionEmojiSchema],
   wasRevealed: { type: Boolean, default: false },
+  statisticsProcessed: { type: Boolean, default: false },
   averageVote: { type: Number },
   consistency: { type: ConsistencySchema },
   createdAt: { type: Date, default: Date.now },

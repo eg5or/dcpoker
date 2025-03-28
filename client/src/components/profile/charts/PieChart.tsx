@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface ChartDataItem {
   label: string;
@@ -11,6 +11,28 @@ interface PieChartProps {
 
 export const PieChart = ({ data }: PieChartProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  
+  // Функция для обновления размеров канваса
+  const updateDimensions = () => {
+    if (containerRef.current) {
+      const { width, height } = containerRef.current.getBoundingClientRect();
+      setDimensions({ width, height });
+    }
+  };
+  
+  // Инициализация размеров и обработка изменения размера окна
+  useEffect(() => {
+    updateDimensions();
+    
+    const handleResize = () => {
+      updateDimensions();
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   // Генерация цветов для секторов
   const getColorForIndex = (index: number) => {
@@ -30,9 +52,12 @@ export const PieChart = ({ data }: PieChartProps) => {
   };
   
   useEffect(() => {
-    if (!canvasRef.current || data.length === 0) return;
+    if (!canvasRef.current || data.length === 0 || dimensions.width === 0) return;
     
     const canvas = canvasRef.current;
+    canvas.width = dimensions.width;
+    canvas.height = dimensions.height;
+    
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
@@ -43,10 +68,10 @@ export const PieChart = ({ data }: PieChartProps) => {
     const total = data.reduce((sum, item) => sum + item.value, 0);
     if (total === 0) return;
     
-    // Настройки для диаграммы
+    // Настройки для диаграммы - адаптируем размер к контейнеру
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
-    const radius = Math.min(centerX, centerY) - 40;
+    const radius = Math.min(centerX, centerY) * 0.8; // 80% от доступного пространства
     
     // Начинаем с верхней части круга
     let startAngle = -Math.PI / 2;
@@ -76,52 +101,95 @@ export const PieChart = ({ data }: PieChartProps) => {
       const labelX = centerX + labelRadius * Math.cos(labelAngle);
       const labelY = centerY + labelRadius * Math.sin(labelAngle);
       
-      // Рисуем метку (эмодзи)
-      ctx.font = '18px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(item.label, labelX, labelY);
+      // Рисуем метку (эмодзи) только для секторов достаточного размера
+      if (sliceAngle > 0.2) { // Минимальный угол для отображения метки
+        ctx.font = '18px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(item.label, labelX, labelY);
+      }
       
       // Переходим к следующему сектору
       startAngle += sliceAngle;
     });
     
-    // Рисуем легенду
-    const legendX = canvas.width - 100;
-    const legendY = 20;
+    // Определяем, нужно ли рисовать легенду отдельно или внутри графика
+    const isSmallContainer = dimensions.width < 300 || dimensions.height < 200;
     
-    data.forEach((item, index) => {
-      const itemY = legendY + index * 20;
+    if (isSmallContainer) {
+      // Для маленьких контейнеров рисуем легенду под диаграммой
+      const legendY = centerY + radius + 10;
+      const itemsPerRow = Math.floor(dimensions.width / 100); // Определяем количество элементов в ряду
+      const itemHeight = 20;
       
-      // Цветной квадрат
-      ctx.fillStyle = getColorForIndex(index);
-      ctx.fillRect(legendX, itemY, 15, 15);
+      data.forEach((item, index) => {
+        const row = Math.floor(index / itemsPerRow);
+        const col = index % itemsPerRow;
+        
+        const itemX = (dimensions.width / itemsPerRow) * col + 20;
+        const itemY = legendY + row * itemHeight;
+        
+        // Цветной квадрат
+        ctx.fillStyle = getColorForIndex(index);
+        ctx.fillRect(itemX, itemY, 12, 12);
+        
+        // Обводка квадрата
+        ctx.strokeStyle = '#1F2937'; // gray-800
+        ctx.lineWidth = 1;
+        ctx.strokeRect(itemX, itemY, 12, 12);
+        
+        // Текст метки
+        ctx.fillStyle = '#D1D5DB'; // gray-300
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        const percentage = ((item.value / total) * 100).toFixed(0);
+        ctx.fillText(`${item.label} ${percentage}%`, itemX + 16, itemY + 6);
+      });
+    } else {
+      // Для больших контейнеров рисуем легенду справа
+      const legendX = canvas.width - Math.min(150, canvas.width * 0.3);
+      const legendY = 20;
       
-      // Обводка квадрата
-      ctx.strokeStyle = '#1F2937'; // gray-800
-      ctx.lineWidth = 1;
-      ctx.strokeRect(legendX, itemY, 15, 15);
+      // Фон для легенды
+      ctx.fillStyle = 'rgba(31, 41, 55, 0.7)'; // gray-800 с прозрачностью
+      ctx.fillRect(legendX - 10, legendY - 10, 160, data.length * 20 + 20);
       
-      // Текст метки
-      ctx.fillStyle = '#fff';
-      ctx.font = '12px Arial';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      const percentage = ((item.value / total) * 100).toFixed(1);
-      ctx.fillText(`${item.label} ${percentage}%`, legendX + 20, itemY + 7);
-    });
+      data.forEach((item, index) => {
+        const itemY = legendY + index * 20;
+        
+        // Цветной квадрат
+        ctx.fillStyle = getColorForIndex(index);
+        ctx.fillRect(legendX, itemY, 15, 15);
+        
+        // Обводка квадрата
+        ctx.strokeStyle = '#1F2937'; // gray-800
+        ctx.lineWidth = 1;
+        ctx.strokeRect(legendX, itemY, 15, 15);
+        
+        // Текст метки
+        ctx.fillStyle = '#fff';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        const percentage = ((item.value / total) * 100).toFixed(1);
+        ctx.fillText(`${item.label} ${percentage}%`, legendX + 20, itemY + 7);
+      });
+    }
     
-  }, [data]);
+  }, [data, dimensions]);
   
   return (
-    <div className="w-full h-full flex items-center justify-center">
+    <div 
+      ref={containerRef} 
+      className="w-full h-full flex items-center justify-center"
+      style={{ minHeight: '200px' }}
+    >
       {data.length === 0 ? (
         <p className="text-gray-400">Нет данных для отображения</p>
       ) : (
         <canvas 
           ref={canvasRef}
-          width={500}
-          height={250}
           className="w-full h-full"
         />
       )}

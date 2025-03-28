@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { VotingSession } from '../models/session.model';
 import { GlobalStats, UserStats } from '../models/stats.model';
 import { User } from '../models/user.model';
+import ioModule from '../utils/io';
 
 export class StatsService {
   /**
@@ -228,6 +229,14 @@ export class StatsService {
         return;
       }
       
+      // Проверяем, не обрабатывалась ли эта сессия ранее
+      // Используем поле revealedAt как индикатор, что сессия уже была учтена в статистике
+      const isSessionAlreadyProcessed = session.get('statisticsProcessed');
+      if (isSessionAlreadyProcessed) {
+        console.log(`Сессия ${sessionId} уже учтена в статистике, пропускаем`);
+        return;
+      }
+      
       // Обновляем статистику каждого участника
       const processedUsers = new Set<string>();
       
@@ -247,7 +256,13 @@ export class StatsService {
           userStats = await this.getUserStats(userId);
         }
         
-        // Обновляем общую статистику пользователя
+        if (!userStats) {
+          console.log(`Не удалось получить статистику для пользователя ${userId}`);
+          continue;
+        }
+        
+        // Одна сессия = одно голосование, инкрементируем только один раз для пользователя
+        // независимо от количества голосов
         userStats.totalSessions += 1;
         
         // Если сессия была завершена, увеличиваем счетчик завершенных сессий
@@ -255,7 +270,7 @@ export class StatsService {
           userStats.completedSessions += 1;
         }
         
-        // Увеличиваем количество голосов
+        // Увеличиваем количество голосов пользователя
         userStats.votesStats.total += 1;
         
         // Если голос был изменен после раскрытия, обновляем статистику
@@ -280,8 +295,86 @@ export class StatsService {
       
       // Обновляем глобальную статистику
       await this.updateGlobalSessionStats(session);
+      
+      // Помечаем сессию как обработанную в статистике
+      session.set('statisticsProcessed', true);
+      await session.save();
+      
+      console.log(`Статистика для сессии ${sessionId} успешно обновлена`);
     } catch (error) {
       console.error('Ошибка при обновлении статистики сессии:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Обновить статистику завершенной сессии
+   * Этот метод обновляет только счетчики завершенных сессий,
+   * предполагая, что основная статистика уже была обновлена в updateSessionStats
+   */
+  static async updateCompletedSessionStats(sessionId: string): Promise<void> {
+    try {
+      const sessionObjectId = new mongoose.Types.ObjectId(sessionId);
+      
+      // Получаем сессию
+      const session = await VotingSession.findById(sessionObjectId);
+      if (!session) {
+        throw new Error('Сессия не найдена');
+      }
+      
+      // Проверяем, что сессия действительно завершена
+      if (session.status !== 'completed') {
+        console.log(`Сессия ${sessionId} не имеет статуса 'completed', пропускаем обновление`);
+        return;
+      }
+      
+      // Обновляем счетчики завершенных сессий для каждого участника
+      const processedUsers = new Set<string>();
+      
+      for (const vote of session.votes) {
+        const userId = vote.userId.toString();
+        
+        // Пропускаем пользователей, которых уже обработали
+        if (processedUsers.has(userId)) {
+          continue;
+        }
+        
+        processedUsers.add(userId);
+        
+        // Получаем статистику пользователя
+        let userStats = await UserStats.findOne({ userId: vote.userId });
+        if (!userStats) {
+          continue; // Пропускаем, если статистика не найдена
+        }
+        
+        // Увеличиваем счетчик завершенных сессий
+        userStats.completedSessions += 1;
+        userStats.lastUpdated = new Date();
+        await userStats.save();
+      }
+      
+      // Обновляем глобальную статистику
+      let globalStats = await GlobalStats.findOne();
+      if (globalStats) {
+        // Увеличиваем счетчик завершенных сессий
+        globalStats.completedSessions += 1;
+        globalStats.lastUpdated = new Date();
+        await globalStats.save();
+        
+        console.log(`Обновлена статистика завершенных сессий для ${sessionId}. Всего завершено: ${globalStats.completedSessions}`);
+        
+        // Оповещаем клиентов об обновлении статистики
+        try {
+          const io = ioModule.getIO();
+          io.emit('stats:updated');
+          console.log('Отправлено событие stats:updated при завершении сессии');
+        } catch (error) {
+          console.error('Ошибка при отправке события stats:updated:', error);
+        }
+      }
+      
+    } catch (error) {
+      console.error('Ошибка при обновлении статистики завершенной сессии:', error);
       throw error;
     }
   }
@@ -296,7 +389,24 @@ export class StatsService {
         globalStats = await this.getGlobalStats();
       }
       
-      // Обновляем общую статистику голосований
+      if (!globalStats) {
+        console.error('Не удалось получить глобальную статистику');
+        return;
+      }
+      
+      // Проверяем, не обрабатывалась ли эта сессия ранее для глобальной статистики
+      // Это критически важная проверка для предотвращения дублирования сессий
+      const processedSessionIds = globalStats.get('processedSessionIds') || [];
+      const sessionId = session._id.toString();
+      
+      if (processedSessionIds.includes(sessionId)) {
+        console.log(`Сессия ${sessionId} уже учтена в глобальной статистике, пропускаем`);
+        return;
+      }
+      
+      // ВАЖНО: Для каждой сессии увеличиваем счетчик сессий ровно на 1,
+      // независимо от количества участников
+      console.log(`Инкрементируем счетчик сессий. Текущее значение: ${globalStats.totalSessions}`);
       globalStats.totalSessions += 1;
       
       // Если сессия была завершена, увеличиваем счетчик завершенных сессий
@@ -305,10 +415,10 @@ export class StatsService {
       }
       
       // Собираем статистику по оценкам
-      const validVotes = session.votes.filter(vote => vote.initialVote !== null && typeof vote.initialVote === 'number');
-      const changedVotes = session.votes.filter(vote => vote.changedAfterReveal);
+      const validVotes = session.votes.filter((vote: any) => vote.initialVote !== null && typeof vote.initialVote === 'number');
+      const changedVotes = session.votes.filter((vote: any) => vote.changedAfterReveal);
       
-      // Обновляем общую статистику по голосам
+      // Обновляем общую статистику по голосам - каждый голос отдельно учитываем
       globalStats.votesStats.total += validVotes.length;
       globalStats.votesStats.changedAfterReveal += changedVotes.length;
       
@@ -318,9 +428,9 @@ export class StatsService {
       );
       
       // Обновляем статистику по оценкам
-      for (const vote of validVotes) {
+      for (const vote of validVotes as Array<{ initialVote: number }>) {
         const voteValue = vote.initialVote;
-        const voteIndex = globalStats.votesStats.values.findIndex(v => v.value === voteValue);
+        const voteIndex = globalStats.votesStats.values.findIndex((v: { value: number }) => v.value === voteValue);
         
         if (voteIndex !== -1) {
           globalStats.votesStats.values[voteIndex].count += 1;
@@ -338,8 +448,24 @@ export class StatsService {
       // Сортируем оценки по значению
       globalStats.votesStats.values.sort((a, b) => a.value - b.value);
       
+      // Добавляем идентификатор обработанной сессии
+      processedSessionIds.push(sessionId);
+      globalStats.set('processedSessionIds', processedSessionIds);
+      
       globalStats.lastUpdated = new Date();
       await globalStats.save();
+      
+      console.log(`Глобальная статистика обновлена для сессии ${sessionId}. Всего сессий: ${globalStats.totalSessions}`);
+      
+      try {
+        // Оповещаем клиентов об обновлении статистики
+        const io = ioModule.getIO();
+        io.emit('stats:updated');
+        console.log('Отправлено событие stats:updated');
+      } catch (error) {
+        console.error('Ошибка при отправке события stats:updated:', error);
+      }
+      
     } catch (error) {
       console.error('Ошибка при обновлении глобальной статистики сессии:', error);
       throw error;
