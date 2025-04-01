@@ -65,7 +65,7 @@ export function LoginForm({ onLogin, onSwitchToRegister, error }: LoginFormProps
     try {
       setIsSubmitting(true);
       await onLogin(login, password);
-    } catch (err) {
+    } catch {
       // Ошибки обрабатываются в родительском компоненте
     } finally {
       setIsSubmitting(false);

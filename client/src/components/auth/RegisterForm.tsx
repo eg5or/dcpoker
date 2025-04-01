@@ -95,7 +95,7 @@ export function RegisterForm({ onRegister, onSwitchToLogin, error }: RegisterFor
     try {
       setIsSubmitting(true);
       await onRegister(displayName, login, password);
-    } catch (err) {
+    } catch {
       // Ошибки обрабатываются в родительском компоненте
     } finally {
       setIsSubmitting(false);

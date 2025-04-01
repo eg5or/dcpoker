@@ -275,7 +275,8 @@ async function completeCurrentSession() {
   }
 }
 
-type User = {
+// Тип для пользователя в состоянии игры
+type GameStateUser = {
   id: string;
   name: string;
   isOnline: boolean;
@@ -289,8 +290,9 @@ type User = {
   lastShakeTime?: number;
 };
 
+// Тип для состояния игры
 type GameState = {
-  users: User[];
+  users: GameStateUser[];
   isRevealed: boolean;
   averageVote: number | null;
   usersChangedVoteAfterReveal: string[];
@@ -342,7 +344,7 @@ io.on('connection', (socket: AuthenticatedSocket) => {
       existingUser.joinedAt = Date.now();
       existingUser.emojiAttacks = {};
     } else {
-      const user: User = {
+      const user: GameStateUser = {
         id: socket.id,
         name,
         isOnline: true,
@@ -581,8 +583,7 @@ io.on('connection', (socket: AuthenticatedSocket) => {
       // Обновляем сессию с новыми данными по изменённым голосам
       if (currentSession) {
         const votes = currentSession.get('votes') || [];
-        let hasChangedVotes = false;
-        
+
         // Обновляем финальные голоса и помечаем изменённые
         for (const user of gameState.users) {
           if (user.vote !== null) {
@@ -621,7 +622,6 @@ io.on('connection', (socket: AuthenticatedSocket) => {
                 // Помечаем голос как изменённый, если он еще не был помечен
                 if (!votes[voteIndex].changedAfterReveal) {
                   votes[voteIndex].changedAfterReveal = true;
-                  hasChangedVotes = true;
                   console.log(`Обнаружено изменение голоса для ${user.name}: ${votes[voteIndex].initialVote} -> ${user.vote}`);
                 }
               }
