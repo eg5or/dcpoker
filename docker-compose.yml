@@ -3,18 +3,18 @@ version: '3.8'
 services:
   client:
     container_name: dcpoker-client
-    build: 
+    build:
       context: ./client
       dockerfile: Dockerfile
     ports:
-      - "80:80"
+      - '80:80'
     depends_on:
       - server
     restart: unless-stopped
     networks:
       - dcpoker-network
     environment:
-      - NGINX_HOST=localhost  # Имя хоста для Nginx
+      - NGINX_HOST=localhost # Имя хоста для Nginx
 
   server:
     container_name: dcpoker-server
@@ -23,9 +23,9 @@ services:
       dockerfile: Dockerfile
     # Публикуем порт 3001 для отладки API
     ports:
-      - "3001:3001"
+      - '3001:3001'
     environment:
-      - NODE_ENV=development  # меняем на development для отладки
+      - NODE_ENV=development # меняем на development для отладки
       - PORT=3001
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost,http://eg5or.ru,https://eg5or.ru}
       - MONGODB_URI=mongodb://mongodb:27017/dcpoker
@@ -49,7 +49,7 @@ services:
     #  - "27017:27017"
     environment:
       - MONGO_INITDB_DATABASE=dcpoker
-    command: ["--bind_ip", "0.0.0.0"]
+    command: ['--bind_ip', '0.0.0.0']
     networks:
       - dcpoker-network
 
@@ -57,7 +57,7 @@ volumes:
   mongo_data:
     # Используем именованный том для обеспечения сохранности данных
     name: dcpoker_mongodb_data
-    
+
 networks:
   dcpoker-network:
-    name: dcpoker-network 
+    name: dcpoker-network

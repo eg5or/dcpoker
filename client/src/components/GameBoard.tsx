@@ -35,12 +35,14 @@ export function GameBoard({
   onRecalculateAverage,
   onThrowEmoji,
   sequence,
-  selectedEmoji
+  selectedEmoji,
 }: GameBoardProps) {
   const [_, setPrevGameState] = useState<GameState>(gameState);
   const [confirmRevealDialogOpen, setConfirmRevealDialogOpen] = useState(false);
   const [confirmResetUsersDialogOpen, setConfirmResetUsersDialogOpen] = useState(false);
-  const [easterEggState, setEasterEggState] = useState<'tilt' | 'fall' | 'shatter' | 'reset' | undefined>(undefined);
+  const [easterEggState, setEasterEggState] = useState<
+    'tilt' | 'fall' | 'shatter' | 'reset' | undefined
+  >(undefined);
 
   // Сохраняем предыдущее состояние игры для анимации
   useEffect(() => {
@@ -63,13 +65,13 @@ export function GameBoard({
   return (
     <div className="min-h-screen bg-gray-900 p-4 sm:p-6 md:p-8">
       <ErrorMessage message={error} />
-      
+
       <div className="max-w-6xl mx-auto">
         <VoteChangeAlert
           changedUsers={gameState.usersChangedVoteAfterReveal}
           onRecalculate={onRecalculateAverage}
         />
-        
+
         <div className="text-center mb-4">
           <p className="text-gray-400 text-sm">
             Нажмите на карточку участника, чтобы бросить в него выбранный эмодзи
@@ -102,10 +104,7 @@ export function GameBoard({
         </div>
 
         {gameState.isRevealed && (
-          <AverageScore
-            averageVote={gameState.averageVote}
-            consistency={gameState.consistency}
-          />
+          <AverageScore averageVote={gameState.averageVote} consistency={gameState.consistency} />
         )}
 
         <VotingPanel
@@ -114,7 +113,7 @@ export function GameBoard({
           sequence={sequence}
           onCoffeeEasterEgg={handleCoffeeEasterEgg}
         />
-        
+
         <div className="mt-8 mb-8">
           <GlobalStatsPanel />
         </div>
@@ -129,7 +128,7 @@ export function GameBoard({
           }}
           onCancel={() => setConfirmRevealDialogOpen(false)}
         />
-        
+
         {/* Диалоговое окно подтверждения сброса всех пользователей */}
         <ConfirmDialog
           isOpen={confirmResetUsersDialogOpen}
@@ -145,4 +144,4 @@ export function GameBoard({
       </div>
     </div>
   );
-} 
+}

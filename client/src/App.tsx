@@ -18,7 +18,7 @@ const initialGameState: GameState = {
   isRevealed: false,
   averageVote: null,
   usersChangedVoteAfterReveal: [],
-  consistency: null
+  consistency: null,
 };
 
 type EmojiThrowData = {
@@ -52,16 +52,18 @@ function App() {
     isRevealed: false,
     averageVote: null,
     usersChangedVoteAfterReveal: [],
-    consistency: null
+    consistency: null,
   });
   const isPageVisible = useRef(true);
   const lastResetTime = useRef<number>(0);
-  const pendingAnimations = useRef<Array<{
-    type: 'throw' | 'shake' | 'fall';
-    time: number;
-    data: any;
-  }>>([]);
-  
+  const pendingAnimations = useRef<
+    Array<{
+      type: 'throw' | 'shake' | 'fall';
+      time: number;
+      data: any;
+    }>
+  >([]);
+
   // Получаем сохраненный эмодзи из localStorage или используем первый из списка
   const getSavedEmoji = (): string => {
     const savedEmoji = localStorage.getItem(SELECTED_EMOJI_KEY);
@@ -70,9 +72,9 @@ function App() {
     }
     return AVAILABLE_EMOJIS[0];
   };
-  
+
   const [selectedEmoji, setSelectedEmoji] = useState<string>(getSavedEmoji());
-  
+
   // Обработчик изменения эмодзи с сохранением в localStorage
   const handleEmojiChange = (emoji: string) => {
     setSelectedEmoji(emoji);
@@ -80,113 +82,116 @@ function App() {
   };
 
   // Выделяем функции обработки анимаций
-  const handleEmojiThrown = useCallback(({ targetId, emoji, trajectory, placement }: EmojiThrowData) => {
-    // Проверяем, не было ли оттряхивания после броска
-    const targetUser = gameState.users.find(u => u.id === targetId);
-    if (targetUser?.lastShakeTime && targetUser.lastShakeTime > Date.now()) {
-      return; // Пропускаем анимацию, если цель уже оттряхнула эмодзи
-    }
+  const handleEmojiThrown = useCallback(
+    ({ targetId, emoji, trajectory, placement }: EmojiThrowData) => {
+      // Проверяем, не было ли оттряхивания после броска
+      const targetUser = gameState.users.find((u) => u.id === targetId);
+      if (targetUser?.lastShakeTime && targetUser.lastShakeTime > Date.now()) {
+        return; // Пропускаем анимацию, если цель уже оттряхнула эмодзи
+      }
 
-    const targetElement = document.querySelector(`[data-user-id="${targetId}"]`);
-    if (!targetElement) return;
+      const targetElement = document.querySelector(`[data-user-id="${targetId}"]`);
+      if (!targetElement) return;
 
-    const projectile = document.createElement('div');
-    projectile.className = 'emoji-projectile';
-    projectile.textContent = emoji;
-    document.body.appendChild(projectile);
+      const projectile = document.createElement('div');
+      projectile.className = 'emoji-projectile';
+      projectile.textContent = emoji;
+      document.body.appendChild(projectile);
 
-    const windowWidth = window.innerWidth;
-    const windowHeight = window.innerHeight;
-    const targetRect = targetElement.getBoundingClientRect();
-    
-    const startX = (trajectory.startX / 100) * windowWidth;
-    const startY = (trajectory.startY / 100) * windowHeight;
-    
-    // Используем синхронизированные координаты из параметра placement
-    const padding = 20; // отступ от краев
-    const randomX = (placement.x / 100) * (targetRect.width - padding * 2) + padding;
-    const randomY = (placement.y / 100) * (targetRect.height - padding * 2) + padding;
-    
-    // Вычисляем абсолютные координаты конечной точки
-    const endX = targetRect.left + randomX;
-    const endY = targetRect.top + randomY;
+      const windowWidth = window.innerWidth;
+      const windowHeight = window.innerHeight;
+      const targetRect = targetElement.getBoundingClientRect();
 
-    const distance = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
-    const maxHeight = distance * 0.3;
-    const duration = 1000; // 1 секунда
+      const startX = (trajectory.startX / 100) * windowWidth;
+      const startY = (trajectory.startY / 100) * windowHeight;
 
-    let startTime: number | null = null;
-    let animationFrameId: number;
+      // Используем синхронизированные координаты из параметра placement
+      const padding = 20; // отступ от краев
+      const randomX = (placement.x / 100) * (targetRect.width - padding * 2) + padding;
+      const randomY = (placement.y / 100) * (targetRect.height - padding * 2) + padding;
 
-    // Используем синхронизированный угол поворота
-    const randomRotation = placement.rotation;
+      // Вычисляем абсолютные координаты конечной точки
+      const endX = targetRect.left + randomX;
+      const endY = targetRect.top + randomY;
 
-    const animate = (currentTime: number) => {
-      if (!startTime) startTime = currentTime;
-      const elapsed = currentTime - startTime;
-      const progress = Math.min(elapsed / duration, 1);
+      const distance = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+      const maxHeight = distance * 0.3;
+      const duration = 1000; // 1 секунда
 
-      // Функция плавности для более естественного движения
-      const easeOutBack = (t: number) => {
-        const c1 = 1.70158;
-        const c3 = c1 + 1;
-        return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+      let startTime: number | null = null;
+      let animationFrameId: number;
+
+      // Используем синхронизированный угол поворота
+      const randomRotation = placement.rotation;
+
+      const animate = (currentTime: number) => {
+        if (!startTime) startTime = currentTime;
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // Функция плавности для более естественного движения
+        const easeOutBack = (t: number) => {
+          const c1 = 1.70158;
+          const c3 = c1 + 1;
+          return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+        };
+
+        // Используем различные функции для разных параметров
+        const moveProgress = progress;
+        const rotateProgress = easeOutBack(progress);
+        const scaleProgress = Math.sin(progress * Math.PI);
+
+        // Параболическая траектория с более реалистичной физикой
+        const x = startX + (endX - startX) * moveProgress;
+        const linearY = startY + (endY - startY) * moveProgress;
+        const parabolaHeight = Math.sin(moveProgress * Math.PI) * maxHeight;
+        const y = linearY - parabolaHeight;
+
+        // Вращение и масштаб с эффектом отскока
+        const rotation = rotateProgress * 720 + randomRotation; // Добавляем конечный угол поворота
+        const scale = 1 - scaleProgress * 0.2;
+
+        projectile.style.transform = `translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${scale})`;
+        projectile.style.opacity = (1 - Math.abs(progress - 0.5) * 0.5).toString();
+
+        if (progress < 1) {
+          animationFrameId = requestAnimationFrame(animate);
+        } else {
+          // Попадание
+          targetElement.classList.add('animate-shake');
+          setTimeout(() => targetElement.classList.remove('animate-shake'), 500);
+
+          // Создаем "прилипший" эмодзи
+          const stuckEmoji = document.createElement('div');
+          stuckEmoji.className = 'stuck-emoji';
+          stuckEmoji.textContent = emoji;
+
+          // Используем те же координаты, что и конечная точка полета
+          stuckEmoji.style.left = `${randomX}px`;
+          stuckEmoji.style.top = `${randomY}px`;
+          stuckEmoji.style.transform = `rotate(${randomRotation}deg)`;
+
+          // Добавляем эмодзи в карточку
+          targetElement.appendChild(stuckEmoji);
+
+          // Удаляем летящий эмодзи
+          if (document.body.contains(projectile)) {
+            document.body.removeChild(projectile);
+          }
+        }
       };
-      
-      // Используем различные функции для разных параметров
-      const moveProgress = progress;
-      const rotateProgress = easeOutBack(progress);
-      const scaleProgress = Math.sin(progress * Math.PI);
 
-      // Параболическая траектория с более реалистичной физикой
-      const x = startX + (endX - startX) * moveProgress;
-      const linearY = startY + (endY - startY) * moveProgress;
-      const parabolaHeight = Math.sin(moveProgress * Math.PI) * maxHeight;
-      const y = linearY - parabolaHeight;
+      animationFrameId = requestAnimationFrame(animate);
 
-      // Вращение и масштаб с эффектом отскока
-      const rotation = rotateProgress * 720 + randomRotation; // Добавляем конечный угол поворота
-      const scale = 1 - scaleProgress * 0.2;
-
-      projectile.style.transform = `translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${scale})`;
-      projectile.style.opacity = (1 - Math.abs(progress - 0.5) * 0.5).toString();
-
-      if (progress < 1) {
-        animationFrameId = requestAnimationFrame(animate);
-      } else {
-        // Попадание
-        targetElement.classList.add('animate-shake');
-        setTimeout(() => targetElement.classList.remove('animate-shake'), 500);
-        
-        // Создаем "прилипший" эмодзи
-        const stuckEmoji = document.createElement('div');
-        stuckEmoji.className = 'stuck-emoji';
-        stuckEmoji.textContent = emoji;
-        
-        // Используем те же координаты, что и конечная точка полета
-        stuckEmoji.style.left = `${randomX}px`;
-        stuckEmoji.style.top = `${randomY}px`;
-        stuckEmoji.style.transform = `rotate(${randomRotation}deg)`;
-        
-        // Добавляем эмодзи в карточку
-        targetElement.appendChild(stuckEmoji);
-        
-        // Удаляем летящий эмодзи
+      return () => {
+        cancelAnimationFrame(animationFrameId);
         if (document.body.contains(projectile)) {
           document.body.removeChild(projectile);
         }
-      }
-    };
-
-    animationFrameId = requestAnimationFrame(animate);
-
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-      if (document.body.contains(projectile)) {
-        document.body.removeChild(projectile);
-      }
-    };
-  }, [gameState.users]);
+      };
+    },
+    [gameState.users]
+  );
 
   const handleEmojiFall = useCallback(() => {
     const stuckEmojis = document.querySelectorAll('.stuck-emoji');
@@ -197,30 +202,43 @@ function App() {
   }, []);
 
   // Обработчик для сокет-события падения эмодзи
-  const handleEmojisfall = useCallback((fallTime: number) => {
-    if (!isPageVisible.current) {
-      pendingAnimations.current.push({
-        type: 'fall',
-        time: fallTime,
-        data: null
-      });
-      return;
-    }
-    handleEmojiFall();
-  }, [handleEmojiFall]);
+  const handleEmojisfall = useCallback(
+    (fallTime: number) => {
+      if (!isPageVisible.current) {
+        pendingAnimations.current.push({
+          type: 'fall',
+          time: fallTime,
+          data: null,
+        });
+        return;
+      }
+      handleEmojiFall();
+    },
+    [handleEmojiFall]
+  );
 
   // Обработчик для сокет-события брошенного эмодзи
-  const handleSocketEmojiThrown = useCallback((targetId: string, fromId: string, emoji: string, trajectory: any, throwTime: number, placement: { x: number, y: number, rotation: number }) => {
-    if (!isPageVisible.current) {
-      pendingAnimations.current.push({
-        type: 'throw',
-        time: throwTime,
-        data: { targetId, fromId, emoji, trajectory, placement }
-      });
-      return;
-    }
-    handleEmojiThrown({ targetId, fromId, emoji, trajectory, placement });
-  }, [handleEmojiThrown]);
+  const handleSocketEmojiThrown = useCallback(
+    (
+      targetId: string,
+      fromId: string,
+      emoji: string,
+      trajectory: any,
+      throwTime: number,
+      placement: { x: number; y: number; rotation: number }
+    ) => {
+      if (!isPageVisible.current) {
+        pendingAnimations.current.push({
+          type: 'throw',
+          time: throwTime,
+          data: { targetId, fromId, emoji, trajectory, placement },
+        });
+        return;
+      }
+      handleEmojiThrown({ targetId, fromId, emoji, trajectory, placement });
+    },
+    [handleEmojiThrown]
+  );
 
   // Функция для обработки отложенных анимаций
   const processPendingAnimations = useCallback(() => {
@@ -230,35 +248,33 @@ function App() {
     pendingAnimations.current.sort((a, b) => a.time - b.time);
 
     // Проверяем, есть ли сброс среди отложенных анимаций
-    const lastReset = pendingAnimations.current
-      .filter(anim => anim.type === 'fall')
-      .pop();
+    const lastReset = pendingAnimations.current.filter((anim) => anim.type === 'fall').pop();
 
     if (lastReset) {
       // Если есть сброс, отбрасываем все анимации до него
-      pendingAnimations.current = pendingAnimations.current
-        .filter(anim => anim.time >= lastReset.time);
+      pendingAnimations.current = pendingAnimations.current.filter(
+        (anim) => anim.time >= lastReset.time
+      );
     }
 
     // Проверяем относительно глобального сброса и времени оттряхивания
-    pendingAnimations.current = pendingAnimations.current
-      .filter(anim => {
-        // Всегда пропускаем анимации после глобального сброса
-        if (anim.time < lastResetTime.current) return false;
+    pendingAnimations.current = pendingAnimations.current.filter((anim) => {
+      // Всегда пропускаем анимации после глобального сброса
+      if (anim.time < lastResetTime.current) return false;
 
-        // Для бросков эмодзи проверяем время оттряхивания цели
-        if (anim.type === 'throw') {
-          const targetUser = gameState.users.find(u => u.id === anim.data.targetId);
-          if (targetUser?.lastShakeTime && anim.time < targetUser.lastShakeTime) {
-            return false;
-          }
+      // Для бросков эмодзи проверяем время оттряхивания цели
+      if (anim.type === 'throw') {
+        const targetUser = gameState.users.find((u) => u.id === anim.data.targetId);
+        if (targetUser?.lastShakeTime && anim.time < targetUser.lastShakeTime) {
+          return false;
         }
+      }
 
-        return true;
-      });
+      return true;
+    });
 
     // Выполняем оставшиеся анимации
-    pendingAnimations.current.forEach(animation => {
+    pendingAnimations.current.forEach((animation) => {
       switch (animation.type) {
         case 'throw':
           handleEmojiThrown(animation.data);
@@ -297,7 +313,7 @@ function App() {
         lastResetTime.current = state.resetTime;
       }
       setGameState(state);
-      
+
       const currentUser = state.users.find((u: { id: string }) => u.id === socket.id);
       if (currentUser) {
         setCurrentVote(currentUser.vote);
@@ -316,7 +332,7 @@ function App() {
 
     const handleDisconnect = (reason: string) => {
       console.log('Отключение от сервера, причина:', reason);
-      
+
       // Если отключение связано с выходом пользователя или переходом на страницу логина, не показываем ошибку
       if (!isAuthenticated) {
         setError(null);
@@ -334,7 +350,9 @@ function App() {
 
     // Регистрируем обработчики событий
     socket.on('game:state', handleGameState);
-    socket.on('user:joined', (user: { id: string; name: string }) => console.log('Пользователь присоединился:', user));
+    socket.on('user:joined', (user: { id: string; name: string }) =>
+      console.log('Пользователь присоединился:', user)
+    );
     socket.on('connect_error', handleConnectError);
     socket.on('disconnect', handleDisconnect);
     socket.on('force:logout', handleForceLogout);
@@ -368,23 +386,25 @@ function App() {
       setError(null); // Сбрасываем ошибку при выходе
       return;
     }
-    
+
     // Если есть сокет, значит соединение установлено успешно
     if (socket) {
       setIsConnecting(false);
       setError(null); // Сбрасываем ошибку при успешном подключении
-      
+
       // Если соединение установлено и пользователь не присоединился к игре
       if (isAuthenticated && user && !isJoined) {
         console.log('Автоматическое подключение с именем:', user.name);
         socket.emit('user:join', user.name);
         setIsJoined(true);
       }
-    } 
+    }
     // Если соединение не удалось, сбрасываем флаг подключения и показываем ошибку
     else if (connectionFailed && isAuthenticated) {
       setIsConnecting(false);
-      setError('Не удалось подключиться к серверу. Пожалуйста, перезагрузите страницу или попробуйте позже.');
+      setError(
+        'Не удалось подключиться к серверу. Пожалуйста, перезагрузите страницу или попробуйте позже.'
+      );
     }
   }, [socket, isAuthenticated, user, connectionFailed, isJoined]);
 
@@ -456,7 +476,7 @@ function App() {
 
   const handleThrowEmoji = (targetId: string, emoji: string) => {
     if (!socket) return;
-    
+
     // Генерируем случайные параметры для размещения эмодзи
     const randomX = Math.random() * 100; // Относительная позиция в процентах
     const randomY = Math.random() * 100; // Относительная позиция в процентах
@@ -466,7 +486,7 @@ function App() {
     socket.emit('throw:emoji', targetId, emoji, {
       x: randomX,
       y: randomY,
-      rotation: randomRotation
+      rotation: randomRotation,
     });
   };
 
@@ -480,10 +500,10 @@ function App() {
     setIsAuthenticated(false);
     setUser(null);
     setShowProfile(false);
-    
+
     // Затем очищаем хранилище и токен
     authService.logout();
-    
+
     // Перезагружаем страницу только в случае ошибки подключения,
     // чтобы полностью сбросить состояние сокета
     if (connectionFailed) {
@@ -512,13 +532,13 @@ function App() {
     return (
       <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center gap-4">
         <div className="text-red-500 text-xl">Не удалось подключиться к серверу</div>
-        <button 
+        <button
           onClick={() => window.location.reload()}
           className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
         >
           Перезагрузить страницу
         </button>
-        <button 
+        <button
           onClick={logout}
           className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
         >
@@ -529,24 +549,12 @@ function App() {
   }
 
   if (!isAuthenticated) {
-    return (
-      <AuthPage
-        onLogin={handleLogin}
-        onRegister={handleRegister}
-        error={error}
-      />
-    );
+    return <AuthPage onLogin={handleLogin} onRegister={handleRegister} error={error} />;
   }
 
   // Показываем страницу профиля, если она активна
   if (showProfile && user) {
-    return (
-      <ProfilePage
-        userName={user.name}
-        userId={user.id}
-        onBack={handleBackFromProfile}
-      />
-    );
+    return <ProfilePage userName={user.name} userId={user.id} onBack={handleBackFromProfile} />;
   }
 
   if (!isJoined) {
@@ -555,7 +563,7 @@ function App() {
       socket.emit('user:join', user.name);
       setIsJoined(true);
     }
-    
+
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-white text-xl">Присоединение к игре...</div>
@@ -597,4 +605,4 @@ function App() {
   );
 }
 
-export default App; 
+export default App;

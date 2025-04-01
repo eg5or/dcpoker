@@ -7,10 +7,13 @@ export interface VoteStat {
 }
 
 // Схема для статистики голосования
-export const VoteStatSchema = new Schema<VoteStat>({
-  value: Number,
-  count: Number
-}, { _id: false });
+export const VoteStatSchema = new Schema<VoteStat>(
+  {
+    value: Number,
+    count: Number,
+  },
+  { _id: false }
+);
 
 // Интерфейс для статистики эмодзи
 export interface EmojiStat {
@@ -19,10 +22,13 @@ export interface EmojiStat {
 }
 
 // Схема для статистики эмодзи
-export const EmojiStatSchema = new Schema<EmojiStat>({
-  emoji: String,
-  count: Number
-}, { _id: false });
+export const EmojiStatSchema = new Schema<EmojiStat>(
+  {
+    emoji: String,
+    count: Number,
+  },
+  { _id: false }
+);
 
 // Интерфейс для статистики пользователя
 export interface UserStatsDocument extends Document {
@@ -69,40 +75,40 @@ export const UserStatsSchema = new Schema<UserStatsDocument>({
     type: Schema.Types.Mixed,
     required: true,
     validate: {
-      validator: function(v: any) {
+      validator: function (v: any) {
         // Проверяем, что значение либо валидный ObjectId, либо непустая строка
         return mongoose.Types.ObjectId.isValid(v) || (typeof v === 'string' && v.trim().length > 0);
       },
-      message: 'userId должен быть валидным ObjectId или непустой строкой'
-    }
+      message: 'userId должен быть валидным ObjectId или непустой строкой',
+    },
   },
   totalSessions: {
     type: Number,
-    default: 0
+    default: 0,
   },
   completedSessions: {
     type: Number,
-    default: 0
+    default: 0,
   },
   votesStats: {
     total: {
       type: Number,
-      default: 0
+      default: 0,
     },
     values: [VoteStatSchema],
     changedAfterReveal: {
       type: Number,
-      default: 0
-    }
+      default: 0,
+    },
   },
   emojisStats: {
     sent: [EmojiStatSchema],
-    received: [EmojiStatSchema]
+    received: [EmojiStatSchema],
   },
   lastUpdated: {
     type: Date,
-    default: Date.now
-  }
+    default: Date.now,
+  },
 });
 
 // Model для статистики пользователя
@@ -118,14 +124,14 @@ const GlobalStatsSchema = new Schema<GlobalStatsDocument>({
     total: { type: Number, default: 0 },
     values: [VoteStatSchema],
     averagePerSession: { type: Number, default: 0 },
-    changedAfterReveal: { type: Number, default: 0 }
+    changedAfterReveal: { type: Number, default: 0 },
   },
   emojisStats: {
     total: { type: Number, default: 0 },
-    topEmojis: [EmojiStatSchema]
+    topEmojis: [EmojiStatSchema],
   },
   processedSessionIds: { type: [String], default: [] }, // Список ID обработанных сессий
-  lastUpdated: { type: Date, default: Date.now }
+  lastUpdated: { type: Date, default: Date.now },
 });
 
 // Создание моделей

@@ -3,22 +3,22 @@ version: '3.8'
 services:
   client:
     container_name: dcpoker-client
-    build: 
+    build:
       context: ./client
       dockerfile: Dockerfile
     ports:
-      - "80:80"
+      - '80:80'
       # Закомментировать или удалить порт 443, так как он уже используется
       # - "443:443"  # Для HTTPS
     volumes:
-      - ./ssl:/etc/nginx/ssl  # Для SSL-сертификатов
+      - ./ssl:/etc/nginx/ssl # Для SSL-сертификатов
     depends_on:
       - server
     restart: unless-stopped
     networks:
       - dcpoker-network
     environment:
-      - NGINX_HOST=localhost  # Имя хоста для Nginx
+      - NGINX_HOST=localhost # Имя хоста для Nginx
 
   server:
     container_name: dcpoker-server
@@ -48,13 +48,13 @@ services:
     restart: unless-stopped
     volumes:
       - mongo_data:/data/db
-      - mongo_config:/data/configdb  # Для конфигурации MongoDB
+      - mongo_config:/data/configdb # Для конфигурации MongoDB
     # Не публикуем порт MongoDB наружу для безопасности
     # ports:
     #  - "27017:27017"
     environment:
       - MONGO_INITDB_DATABASE=dcpoker
-    command: ["--bind_ip", "0.0.0.0"]
+    command: ['--bind_ip', '0.0.0.0']
     networks:
       - dcpoker-network
 
@@ -63,7 +63,7 @@ volumes:
     name: dcpoker_mongodb_data
   mongo_config:
     name: dcpoker_mongodb_config
-    
+
 networks:
   dcpoker-network:
-    name: dcpoker-network 
+    name: dcpoker-network

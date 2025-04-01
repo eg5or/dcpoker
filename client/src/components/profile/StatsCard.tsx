@@ -14,10 +14,8 @@ export const StatsCard = ({ title, value, icon }: StatsCardProps) => {
           <h3 className="text-gray-400 text-sm font-medium">{title}</h3>
           <p className="text-white text-2xl font-bold mt-2">{value}</p>
         </div>
-        <div className="bg-blue-500 bg-opacity-20 rounded-full p-3 text-blue-500">
-          {icon}
-        </div>
+        <div className="bg-blue-500 bg-opacity-20 rounded-full p-3 text-blue-500">{icon}</div>
       </div>
     </div>
   );
-}; 
+};

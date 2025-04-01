@@ -3,80 +3,86 @@ import { AnimationRefs } from './UserCardAnimations';
 import { User } from './UserCardTypes';
 
 // Функция для анимации падения эмодзи
-export const animateEmojisFalling = (emojis: NodeListOf<Element>, shakeIntensity?: 'random' | 'all') => {
+export const animateEmojisFalling = (
+  emojis: NodeListOf<Element>,
+  shakeIntensity?: 'random' | 'all'
+) => {
   // Конвертируем NodeList в массив для удобства работы
   const emojiArray = Array.from(emojis);
-  
+
   console.log(`[Shake] Total emojis before filtering: ${emojiArray.length}`);
-  
+
   // Перемешиваем массив перед фильтрацией
   const shuffledArray = emojiArray.sort(() => Math.random() - 0.5);
-  
+
   // Если shakeIntensity = 'random', то часть эмодзи может остаться
   // Если shakeIntensity = 'all' или не указан, все эмодзи отваливаются
-  const shuffledEmojis = shakeIntensity === 'random' 
-    ? shuffledArray.filter(() => {
-        // Базовый шанс 70% + случайный бонус до 25%
-        const baseChance = 0.7;
-        const randomBonus = Math.random() * 0.25;
-        const totalChance = baseChance + randomBonus;
-        const willFall = Math.random() < totalChance;
-        
-        console.log(`[Shake] Emoji fall chance: ${(totalChance * 100).toFixed(1)}%, Will fall: ${willFall}`);
-        return willFall;
-      })
-    : shuffledArray;
-  
+  const shuffledEmojis =
+    shakeIntensity === 'random'
+      ? shuffledArray.filter(() => {
+          // Базовый шанс 70% + случайный бонус до 25%
+          const baseChance = 0.7;
+          const randomBonus = Math.random() * 0.25;
+          const totalChance = baseChance + randomBonus;
+          const willFall = Math.random() < totalChance;
+
+          console.log(
+            `[Shake] Emoji fall chance: ${(totalChance * 100).toFixed(1)}%, Will fall: ${willFall}`
+          );
+          return willFall;
+        })
+      : shuffledArray;
+
   console.log(`[Shake] Emojis that will fall: ${shuffledEmojis.length}`);
-  
+
   let currentIndex = 0;
   let lastStartTime = 0;
-  
+
   // Функция для анимации одного эмодзи
   const animateEmoji = (emoji: Element, startTime: number) => {
     const element = emoji as HTMLElement;
     const rect = element.getBoundingClientRect();
     const startY = rect.top;
-    
+
     // Получаем текущую трансформацию
     const currentTransform = element.style.transform;
-    const currentRotation = currentTransform 
-      ? parseInt(currentTransform.split('rotate(')[1]) || 0 
+    const currentRotation = currentTransform
+      ? parseInt(currentTransform.split('rotate(')[1]) || 0
       : 0;
-    
+
     const duration = 800;
     const fallDistance = window.innerHeight - startY + 100;
-    
+
     // Случайные параметры для эмодзи
     const randomX = (Math.random() - 0.5) * 30; // ±15px
     const rotationSpeed = (Math.random() - 0.5) * 360; // ±180 градусов
-    
+
     const animate = (currentTime: number) => {
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      
+
       // Квадратичная функция для имитации ускорения падения
       const fallProgress = Math.pow(progress, 2);
       const translateY = fallDistance * fallProgress;
-      
+
       // Линейное движение по X и вращение
       const translateX = randomX * progress;
-      const rotation = currentRotation + (rotationSpeed * progress);
-      
+      const rotation = currentRotation + rotationSpeed * progress;
+
       element.style.transform = `translate(${translateX}px, ${translateY}px) rotate(${rotation}deg)`;
-      
+
       // Плавное исчезновение в конце
       if (progress > 0.7) {
-        element.style.opacity = (1 - ((progress - 0.7) / 0.3)).toString();
+        element.style.opacity = (1 - (progress - 0.7) / 0.3).toString();
       }
-      
+
       if (progress < 1) {
         requestAnimationFrame((time) => animate(time));
       } else {
         element.remove();
       }
     };
-    
+
     requestAnimationFrame((time) => animate(time));
   };
 
@@ -112,7 +118,13 @@ export const handleEasterEgg = (
     startShatterAnimation: (refs: AnimationRefs) => void;
   }
 ) => {
-  const { setCurrentEasterEggState, resetEasterEggAnimation, startTiltAnimation, startFallingAnimation, startShatterAnimation } = callbacks;
+  const {
+    setCurrentEasterEggState,
+    resetEasterEggAnimation,
+    startTiltAnimation,
+    startFallingAnimation,
+    startShatterAnimation,
+  } = callbacks;
 
   if (easterEggState === 'tilt') {
     startTiltAnimation(clickCount, refs);
@@ -139,13 +151,13 @@ export const cleanupAnimations = (
   if (animationFrameRef.current) {
     cancelAnimationFrame(animationFrameRef.current);
   }
-  
+
   if (easterEggAnimationFrameRef.current) {
     cancelAnimationFrame(easterEggAnimationFrameRef.current);
   }
-  
+
   // Очищаем осколки
-  shardsRef.current.forEach(shard => {
+  shardsRef.current.forEach((shard) => {
     if (shard.parentNode) {
       shard.parentNode.removeChild(shard);
     }
@@ -207,4 +219,4 @@ export const handleCardAnimation = (
     handleFlip('reveal');
     return;
   }
-}; 
+};

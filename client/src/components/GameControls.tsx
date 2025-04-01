@@ -39,4 +39,4 @@ export function GameControls({ onReveal, onReset, onResetUsers }: GameControlsPr
       </div>
     </div>
   );
-} 
+}

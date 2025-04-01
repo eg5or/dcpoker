@@ -16,4 +16,4 @@ export function getIO(): Server {
 
 // Экспортируем объект как дефолтный и именованный экспорт для максимальной совместимости
 const ioUtils = { initializeIO, getIO };
-export default ioUtils; 
+export default ioUtils;

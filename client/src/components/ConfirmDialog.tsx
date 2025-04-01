@@ -1,4 +1,3 @@
-
 interface ConfirmDialogProps {
   message: string;
   confirmLabel?: string;
@@ -14,7 +13,7 @@ export function ConfirmDialog({
   cancelLabel = 'Нет',
   onConfirm,
   onCancel,
-  isOpen
+  isOpen,
 }: ConfirmDialogProps) {
   if (!isOpen) return null;
 
@@ -39,4 +38,4 @@ export function ConfirmDialog({
       </div>
     </div>
   );
-} 
+}

@@ -17,7 +17,7 @@ export const register = async (req: Request, res: Response): Promise<Response> =
     const user = await User.create({
       username: name,
       login,
-      password
+      password,
     });
 
     // Генерация JWT токена
@@ -29,8 +29,8 @@ export const register = async (req: Request, res: Response): Promise<Response> =
       user: {
         id: user._id,
         name: user.username,
-        login: user.login
-      }
+        login: user.login,
+      },
     });
   } catch (error) {
     console.error('Ошибка при регистрации:', error);
@@ -64,8 +64,8 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
       user: {
         id: user._id,
         name: user.username,
-        login: user.login
-      }
+        login: user.login,
+      },
     });
   } catch (error) {
     console.error('Ошибка при авторизации:', error);
@@ -80,21 +80,21 @@ export const getMe = async (req: Request, res: Response): Promise<Response> => {
     if (!req.user || !req.user.id) {
       return res.status(401).json({ message: 'Пользователь не авторизован' });
     }
-    
+
     const user = await User.findById(req.user.id).select('-password');
     if (!user) {
       return res.status(404).json({ message: 'Пользователь не найден' });
     }
 
-    return res.status(200).json({ 
+    return res.status(200).json({
       user: {
         id: user._id,
         name: user.username,
-        login: user.login
-      } 
+        login: user.login,
+      },
     });
   } catch (error) {
     console.error('Ошибка при получении информации о пользователе:', error);
     return res.status(500).json({ message: 'Ошибка при получении информации о пользователе' });
   }
-}; 
+};

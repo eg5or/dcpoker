@@ -5,4 +5,4 @@ declare namespace Express {
     name: string;
     username?: string;
   }
-} 
+}

@@ -30,11 +30,11 @@ class AuthService {
     try {
       const token = localStorage.getItem('token');
       const userData = localStorage.getItem('user');
-      
+
       if (token) {
         this.token = token;
       }
-      
+
       if (userData) {
         this.user = JSON.parse(userData);
       }
@@ -51,7 +51,7 @@ class AuthService {
     } else {
       localStorage.removeItem('token');
     }
-    
+
     if (this.user) {
       localStorage.setItem('user', JSON.stringify(this.user));
     } else {
@@ -66,7 +66,7 @@ class AuthService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ login, password })
+        body: JSON.stringify({ login, password }),
       });
 
       if (!response.ok) {
@@ -84,7 +84,7 @@ class AuthService {
       this.token = data.token;
       this.user = data.user;
       this.saveToStorage();
-      
+
       return data.user;
     } catch (err) {
       console.error('Ошибка при авторизации:', err);
@@ -100,7 +100,7 @@ class AuthService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name, login, password })
+        body: JSON.stringify({ name, login, password }),
       });
 
       console.log('Ответ сервера:', response.status, response.statusText);
@@ -123,7 +123,7 @@ class AuthService {
       this.token = data.token;
       this.user = data.user;
       this.saveToStorage();
-      
+
       return data.user;
     } catch (err) {
       console.error('Ошибка при регистрации:', err);
@@ -135,7 +135,7 @@ class AuthService {
     console.log('Выполняется выход из сервиса аутентификации...');
     this.token = null;
     this.user = null;
-    
+
     // Гарантированно очищаем localStorage
     try {
       localStorage.removeItem('token');
@@ -143,7 +143,7 @@ class AuthService {
     } catch (err) {
       console.error('Ошибка при очистке localStorage:', err);
     }
-    
+
     this.saveToStorage();
   }
 
@@ -167,8 +167,8 @@ class AuthService {
     const response = await fetch(`${this.baseUrl}/auth/me`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${this.token}`,
-      }
+        Authorization: `Bearer ${this.token}`,
+      },
     });
 
     if (!response.ok) {
@@ -183,10 +183,10 @@ class AuthService {
     const data = await response.json();
     this.user = data.user;
     this.saveToStorage();
-    
+
     return data.user;
   }
 }
 
 // Экспортируем экземпляр сервиса для использования во всем приложении
-export const authService = new AuthService(); 
+export const authService = new AuthService();

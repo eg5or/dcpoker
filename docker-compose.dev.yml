@@ -7,7 +7,7 @@ services:
       context: ./server
       dockerfile: Dockerfile.dev
     ports:
-      - "3001:3001"
+      - '3001:3001'
     environment:
       - NODE_ENV=development
       - PORT=3001
@@ -27,19 +27,19 @@ services:
     networks:
       - dcpoker-network
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - 'host.docker.internal:host-gateway'
 
   mongodb:
     container_name: dcpoker-mongodb
     image: mongo:latest
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      - '27017:27017'
     volumes:
       - mongo_data:/data/db
     environment:
       - MONGO_INITDB_DATABASE=dcpoker
-    command: ["--bind_ip", "0.0.0.0"]
+    command: ['--bind_ip', '0.0.0.0']
     networks:
       - dcpoker-network
 
@@ -49,4 +49,4 @@ volumes:
 
 networks:
   dcpoker-network:
-    name: dcpoker-network 
+    name: dcpoker-network

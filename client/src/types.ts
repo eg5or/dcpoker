@@ -28,10 +28,10 @@ export interface GameState {
 export const FIBONACCI_SEQUENCE = [0.1, 0.5, 1, 2, 3, 5, 8, 13, 20, 40, 100];
 
 export interface EmojiTrajectory {
-  startX: number;  // начальная позиция X в процентах от ширины экрана
-  startY: number;  // начальная позиция Y в процентах от высоты экрана
-  angle: number;   // угол броска в радианах
-  speed: number;   // начальная скорость
+  startX: number; // начальная позиция X в процентах от ширины экрана
+  startY: number; // начальная позиция Y в процентах от высоты экрана
+  angle: number; // угол броска в радианах
+  speed: number; // начальная скорость
 }
 
 export interface ServerEvents {
@@ -41,7 +41,12 @@ export interface ServerEvents {
   'user:voted': (userId: string) => void;
   'votes:revealed': (state: GameState) => void;
   'force:logout': () => void;
-  'emoji:thrown': (targetUserId: string, fromUserId: string, emoji: string, trajectory: EmojiTrajectory) => void;
+  'emoji:thrown': (
+    targetUserId: string,
+    fromUserId: string,
+    emoji: string,
+    trajectory: EmojiTrajectory
+  ) => void;
   'emojis:fall': () => void;
   'emojis:shake': (userId: string) => void;
 }
@@ -68,5 +73,5 @@ export const AVAILABLE_EMOJIS = [
   '🧐', // смайлик с моноклем (для умных мыслей)
   '🦥', // ленивец (когда оценка слишком медленная/ленивая)
   '👻', // призрак (для мистических оценок)
-  '🤯'  // взрывающаяся голова (когда оценка шокирует)
+  '🤯', // взрывающаяся голова (когда оценка шокирует)
 ];

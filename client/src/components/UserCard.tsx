@@ -8,20 +8,20 @@ import {
   startFallingAnimation,
   startFlipAnimation,
   startShatterAnimation,
-  startTiltAnimation
+  startTiltAnimation,
 } from './UserCardAnimations';
 import { animateEmojisFalling, cleanupAnimations, handleEasterEgg } from './UserCardEffects';
 import { EmojiCounters } from './UserCardEmoji';
 import { UserCardProps } from './UserCardTypes';
 
-export function UserCard({ 
-  user, 
-  isRevealed, 
-  currentUserId, 
-  onThrowEmoji, 
+export function UserCard({
+  user,
+  isRevealed,
+  currentUserId,
+  onThrowEmoji,
   easterEggState,
   onVoteAfterReveal,
-  socket
+  socket,
 }: UserCardProps) {
   const isCurrentUser = user.id === currentUserId;
   const [clickCount, setClickCount] = useState(0);
@@ -52,19 +52,24 @@ export function UserCard({
     .sort((a, b) => b[1] - a[1]);
 
   const hasVoted = user.vote !== null;
-  const voteDisplay = user.vote === null ? '' : user.vote === 0.1 ? '☕️' : user.vote === 0.5 ? '½' : user.vote;
+  const voteDisplay =
+    user.vote === null ? '' : user.vote === 0.1 ? '☕️' : user.vote === 0.5 ? '½' : user.vote;
 
   const hasStuckEmojis = useCallback(() => {
-    return Object.values(user.emojiAttacks || {}).some(count => count > 0);
+    return Object.values(user.emojiAttacks || {}).some((count) => count > 0);
   }, [user.emojiAttacks]);
 
   // Отслеживаем видимость страницы
   useEffect(() => {
     const handleVisibilityChange = () => {
       isPageVisible.current = document.visibilityState === 'visible';
-      
+
       // Если страница стала видимой и есть отложенная анимация тряски
-      if (isPageVisible.current && pendingShakeAnimation.current && !shakeAnimationInProgress.current) {
+      if (
+        isPageVisible.current &&
+        pendingShakeAnimation.current &&
+        !shakeAnimationInProgress.current
+      ) {
         pendingShakeAnimation.current = false;
         const stuckEmojis = cardContainerRef.current?.querySelectorAll('.stuck-emoji');
         if (stuckEmojis?.length) {
@@ -82,62 +87,62 @@ export function UserCard({
 
   const handleShakeEmojis = useCallback(() => {
     if (!socket || !isCurrentUser || shakeAnimationInProgress.current) return;
-    
+
     console.log('[Shake] Button clicked - starting local shake animation');
-    
+
     // Устанавливаем флаг анимации
     shakeAnimationInProgress.current = true;
     localShakeAnimationStarted.current = true;
-    
+
     // Добавляем тряску карточки
     if (cardContainerRef.current) {
       let startTime: number | null = null;
       const duration = 500; // 0.5 секунды
       let animationFrameId: number;
-      
+
       const animateShake = (currentTime: number) => {
         if (!startTime) startTime = currentTime;
         const elapsed = currentTime - startTime;
         const progress = Math.min(elapsed / duration, 1);
-        
+
         // Функция для плавности
         const easeOutElastic = (t: number) => {
           const p = 0.3;
-          return Math.pow(2, -10 * t) * Math.sin((t - p / 4) * (2 * Math.PI) / p) + 1;
-        }
-        
+          return Math.pow(2, -10 * t) * Math.sin(((t - p / 4) * (2 * Math.PI)) / p) + 1;
+        };
+
         // Создаем эффект тряски с затуханием
         const intensity = (1 - easeOutElastic(progress)) * 5;
         const shakeX = Math.sin(progress * Math.PI * 8) * intensity;
         const shakeY = Math.cos(progress * Math.PI * 6) * intensity;
-        
+
         if (cardContainerRef.current) {
           cardContainerRef.current.style.transform = `translate(${shakeX}px, ${shakeY}px)`;
         }
-        
+
         if (progress < 1) {
           animationFrameId = requestAnimationFrame(animateShake);
         } else {
           // Возвращаем карточку в исходное положение
           if (cardContainerRef.current) {
             cardContainerRef.current.style.transform = '';
-            
+
             // Отправляем событие на сервер
             console.log('[Shake] Local animation finished, sending shake event to server');
             socket.emit('emojis:shake', user.id);
-            
+
             // Клиент не будет сам запускать анимацию падения эмодзи
             // Вместо этого, сервер пришлет событие с индексами падающих эмодзи
             // и анимация будет запущена в handleShake
           }
-          
+
           // Сбрасываем флаг анимации после завершения
           shakeAnimationInProgress.current = false;
         }
       };
-      
+
       animationFrameId = requestAnimationFrame(animateShake);
-      
+
       return () => {
         if (animationFrameId) {
           cancelAnimationFrame(animationFrameId);
@@ -155,12 +160,14 @@ export function UserCard({
     const handleShake = (userId: string, shakeTime: number, fallingIndices?: number[]) => {
       // Если это не наша карточка или нет контейнера, выходим
       if (userId !== user.id || !cardContainerRef.current) return;
-      
+
       console.log('[Shake] Received shake event from server', { fallingIndices });
-      
+
       // Для текущего пользователя тоже запускаем анимацию, но не дублируем тряску
       if (isCurrentUser && localShakeAnimationStarted.current) {
-        console.log('[Shake] Current user - local tilt animation already done, running only emoji fall');
+        console.log(
+          '[Shake] Current user - local tilt animation already done, running only emoji fall'
+        );
         localShakeAnimationStarted.current = false;
       }
 
@@ -181,19 +188,21 @@ export function UserCard({
       if (stuckEmojis.length > 0) {
         console.log('[Shake] Starting emoji fall from server event');
         shakeAnimationInProgress.current = true;
-        
+
         if (fallingIndices && fallingIndices.length > 0) {
           // Используем полученные от сервера индексы для определения падающих эмодзи
-          console.log(`[Shake] Server says ${fallingIndices.length} out of ${stuckEmojis.length} emojis should fall`);
-          
+          console.log(
+            `[Shake] Server says ${fallingIndices.length} out of ${stuckEmojis.length} emojis should fall`
+          );
+
           // Конвертируем NodeList в массив
           const emojiArray = Array.from(stuckEmojis);
-          
+
           // Фильтруем эмодзи по индексам
           const fallingEmojis = fallingIndices
-            .filter(index => index < emojiArray.length)
-            .map(index => emojiArray[index]);
-          
+            .filter((index) => index < emojiArray.length)
+            .map((index) => emojiArray[index]);
+
           // Запускаем анимацию только для указанных эмодзи
           if (fallingEmojis.length > 0) {
             // Создаем новый NodeList из падающих эмодзи
@@ -205,13 +214,13 @@ export function UserCard({
                   yield this.item(i);
                 }
               },
-              forEach: function(callback: (item: Element, index: number) => void) {
+              forEach: function (callback: (item: Element, index: number) => void) {
                 for (let i = 0; i < this.length; i++) {
                   callback(this.item(i), i);
                 }
-              }
+              },
             } as NodeListOf<Element>;
-            
+
             // Запускаем анимацию падения для синхронизированных эмодзи
             animateEmojisFalling(fallingNodeList, 'all');
           }
@@ -219,7 +228,7 @@ export function UserCard({
           // Для обратной совместимости, если индексы не были получены
           animateEmojisFalling(stuckEmojis, 'random');
         }
-        
+
         // После завершения анимации падения сбрасываем флаг
         setTimeout(() => {
           shakeAnimationInProgress.current = false;
@@ -234,7 +243,7 @@ export function UserCard({
 
     const handleResetEmojis = () => {
       if (!cardContainerRef.current) return;
-      
+
       // Если страница не видна, отмечаем что нужно выполнить анимацию позже
       if (!isPageVisible.current) {
         pendingShakeAnimation.current = true;
@@ -268,14 +277,14 @@ export function UserCard({
   useEffect(() => {
     if (isCurrentUser && user.vote === 0.1 && easterEggState) {
       setCurrentEasterEggState(easterEggState);
-      
+
       const refs = {
         cardInnerRef,
         cardContainerRef,
         animationFrameRef,
         animationStartTimeRef,
         easterEggAnimationFrameRef,
-        shardsRef
+        shardsRef,
       };
 
       const timeout = handleEasterEgg(easterEggState, clickCount, refs, {
@@ -283,7 +292,7 @@ export function UserCard({
         resetEasterEggAnimation,
         startTiltAnimation,
         startFallingAnimation,
-        startShatterAnimation
+        startShatterAnimation,
       });
 
       return () => {
@@ -296,7 +305,7 @@ export function UserCard({
         animationFrameRef,
         animationStartTimeRef,
         easterEggAnimationFrameRef,
-        shardsRef
+        shardsRef,
       };
       resetEasterEggAnimation(refs);
       setCurrentEasterEggState(undefined);
@@ -330,7 +339,7 @@ export function UserCard({
       animationFrameRef,
       animationStartTimeRef,
       easterEggAnimationFrameRef,
-      shardsRef
+      shardsRef,
     };
 
     const startFlipWithAnimation = (type: 'reveal' | 'reset') => {
@@ -379,7 +388,7 @@ export function UserCard({
     transform: 'rotateY(0deg)',
     transformStyle: 'preserve-3d' as const,
     backfaceVisibility: 'hidden' as const,
-    WebkitBackfaceVisibility: 'hidden' as const
+    WebkitBackfaceVisibility: 'hidden' as const,
   });
 
   const getFrontStyles = () => ({
@@ -388,7 +397,7 @@ export function UserCard({
     WebkitBackfaceVisibility: 'hidden' as const,
     position: 'absolute' as const,
     width: '100%',
-    height: '100%'
+    height: '100%',
   });
 
   const getBackStyles = () => ({
@@ -397,11 +406,11 @@ export function UserCard({
     WebkitBackfaceVisibility: 'hidden' as const,
     position: 'absolute' as const,
     width: '100%',
-    height: '100%'
+    height: '100%',
   });
-  
+
   return (
-    <div 
+    <div
       ref={cardContainerRef}
       data-user-id={user.id}
       className="card-container relative h-[140px] sm:h-[160px] select-none"
@@ -409,7 +418,7 @@ export function UserCard({
         if (!isCurrentUser && user.isOnline && !isAnimatingRef.current) {
           onThrowEmoji(user.id);
         } else if (isCurrentUser && user.vote === 0.1) {
-          setClickCount(prev => {
+          setClickCount((prev) => {
             const newCount = prev + 1;
             const refs = {
               cardInnerRef,
@@ -417,7 +426,7 @@ export function UserCard({
               animationFrameRef,
               animationStartTimeRef,
               easterEggAnimationFrameRef,
-              shardsRef
+              shardsRef,
             };
             if (newCount >= 4 && newCount < 9) {
               startTiltAnimation(newCount, refs);
@@ -432,35 +441,30 @@ export function UserCard({
       {/* Кнопка оттряхивания эмодзи */}
       {isCurrentUser && hasStuckEmojis() && (
         <div ref={buttonRef} className="absolute left-0 bottom-0">
-          <ShakeButton onClick={(e) => {
-            e.stopPropagation();
-            handleShakeEmojis();
-          }} />
+          <ShakeButton
+            onClick={(e) => {
+              e.stopPropagation();
+              handleShakeEmojis();
+            }}
+          />
         </div>
       )}
 
       {/* Бейджики с эмодзи */}
       <div ref={badgesRef}>
-        <EmojiCounters 
-          emojiCounts={emojiCounts}
-          isFloating={false}
-        />
+        <EmojiCounters emojiCounts={emojiCounts} isFloating={false} />
       </div>
-      
+
       {/* Контейнер для 3D-вращения */}
-      <div 
-        ref={cardInnerRef}
-        className="card-inner w-full h-full relative" 
-        style={getCardStyles()}
-      >
-        <CardFront 
+      <div ref={cardInnerRef} className="card-inner w-full h-full relative" style={getCardStyles()}>
+        <CardFront
           user={user}
           isCurrentUser={isCurrentUser}
           hasVoted={hasVoted}
           isRevealed={isRevealed}
           style={getFrontStyles()}
         />
-        <CardBack 
+        <CardBack
           user={user}
           isCurrentUser={isCurrentUser}
           hasVoted={hasVoted}
@@ -470,4 +474,4 @@ export function UserCard({
       </div>
     </div>
   );
-} 
+}

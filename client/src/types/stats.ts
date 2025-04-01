@@ -44,4 +44,4 @@ export interface GlobalStats {
     topEmojis: EmojiStat[];
   };
   lastUpdated: Date;
-} 
+}

@@ -5,23 +5,27 @@
 ## Запуск
 
 ### Требования
+
 - Docker
 - Docker Compose
 
 ### Установка и запуск
 
 1. Клонируйте репозиторий:
+
 ```bash
 git clone https://github.com/your-username/dcpoker.git
 cd dcpoker
 ```
 
 2. Запустите приложение:
+
 ```bash
 docker-compose up -d
 ```
 
 3. Откройте браузер и перейдите по адресу:
+
 ```
 http://localhost
 ```
@@ -37,6 +41,7 @@ docker-compose down
 Для локальной разработки:
 
 1. Запустите сервер:
+
 ```bash
 cd server
 npm install
@@ -44,6 +49,7 @@ npm run dev
 ```
 
 2. Запустите клиент:
+
 ```bash
 cd client
 npm install
@@ -64,4 +70,4 @@ npm run dev
 - TypeScript
 - Socket.IO
 - Tailwind CSS
-- Vite 
+- Vite

@@ -14,11 +14,7 @@ export function LoginForm({ name, setName, error, onJoin }: LoginFormProps) {
     <div className="min-h-screen bg-gray-900 flex items-center justify-center">
       <form onSubmit={onJoin} className="bg-gray-800 p-8 rounded-lg shadow-xl">
         <h1 className="text-2xl text-white mb-4">Войти в Scrum Poker</h1>
-        {error && (
-          <div className="bg-red-500 text-white p-3 rounded mb-4">
-            {error}
-          </div>
-        )}
+        {error && <div className="bg-red-500 text-white p-3 rounded mb-4">{error}</div>}
         <input
           type="text"
           value={name}
@@ -36,4 +32,4 @@ export function LoginForm({ name, setName, error, onJoin }: LoginFormProps) {
       </form>
     </div>
   );
-} 
+}

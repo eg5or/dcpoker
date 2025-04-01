@@ -15,7 +15,7 @@ export type VotingSequenceType = 'fibonacci' | 'linear' | 'tshirt';
 // Интерфейс для настроек последовательности голосования
 export interface VotingSequence {
   type: VotingSequenceType;
-  values: number[];  // Значения для голосования
+  values: number[]; // Значения для голосования
 }
 
 // Интерфейс для темы интерфейса
@@ -34,68 +34,77 @@ export interface UserSettingsDocument extends Document {
 }
 
 // Схема для настроек уведомлений
-const NotificationSettingsSchema = new Schema<NotificationSettings>({
-  newSession: { type: Boolean, default: true },
-  newVote: { type: Boolean, default: true },
-  voteRevealed: { type: Boolean, default: true },
-  emojiReceived: { type: Boolean, default: true },
-  sessionCompleted: { type: Boolean, default: true }
-}, { _id: false });
+const NotificationSettingsSchema = new Schema<NotificationSettings>(
+  {
+    newSession: { type: Boolean, default: true },
+    newVote: { type: Boolean, default: true },
+    voteRevealed: { type: Boolean, default: true },
+    emojiReceived: { type: Boolean, default: true },
+    sessionCompleted: { type: Boolean, default: true },
+  },
+  { _id: false }
+);
 
 // Схема для настроек последовательности голосования
-const VotingSequenceSchema = new Schema<VotingSequence>({
-  type: { 
-    type: String, 
-    enum: ['fibonacci', 'linear', 'tshirt'], 
-    default: 'fibonacci' 
+const VotingSequenceSchema = new Schema<VotingSequence>(
+  {
+    type: {
+      type: String,
+      enum: ['fibonacci', 'linear', 'tshirt'],
+      default: 'fibonacci',
+    },
+    values: {
+      type: [Number],
+      default: [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89],
+    },
   },
-  values: { 
-    type: [Number], 
-    default: [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89] 
-  }
-}, { _id: false });
+  { _id: false }
+);
 
 // Схема для пользовательских настроек
 const UserSettingsSchema = new Schema<UserSettingsDocument>({
-  userId: { 
-    type: Schema.Types.ObjectId, 
-    ref: 'User', 
+  userId: {
+    type: Schema.Types.ObjectId,
+    ref: 'User',
     required: true,
-    unique: true
+    unique: true,
   },
-  favoriteEmojis: { 
-    type: [String], 
-    default: ['👍', '👎', '🔥', '🤔', '😊', '❤️'] 
+  favoriteEmojis: {
+    type: [String],
+    default: ['👍', '👎', '🔥', '🤔', '😊', '❤️'],
   },
-  theme: { 
-    type: String, 
-    enum: ['light', 'dark', 'system'], 
-    default: 'system' 
+  theme: {
+    type: String,
+    enum: ['light', 'dark', 'system'],
+    default: 'system',
   },
-  language: { 
-    type: String, 
-    default: 'ru' 
+  language: {
+    type: String,
+    default: 'ru',
   },
-  notifications: { 
-    type: NotificationSettingsSchema, 
-    default: () => ({}) 
+  notifications: {
+    type: NotificationSettingsSchema,
+    default: () => ({}),
   },
-  votingSequence: { 
-    type: VotingSequenceSchema, 
-    default: () => ({}) 
+  votingSequence: {
+    type: VotingSequenceSchema,
+    default: () => ({}),
   },
   createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
+  updatedAt: { type: Date, default: Date.now },
 });
 
 // Индексы для оптимизации запросов
 UserSettingsSchema.index({ userId: 1 });
 
 // Хук для обновления времени изменения
-UserSettingsSchema.pre('save', function(next) {
+UserSettingsSchema.pre('save', function (next) {
   this.updatedAt = new Date();
   next();
 });
 
 // Создание модели
-export const UserSettings = mongoose.model<UserSettingsDocument>('UserSettings', UserSettingsSchema); 
+export const UserSettings = mongoose.model<UserSettingsDocument>(
+  'UserSettings',
+  UserSettingsSchema
+);

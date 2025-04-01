@@ -21,4 +21,4 @@ export interface UserCardProps {
   socket?: any;
 }
 
-export type FlipAnimationType = 'reveal' | 'reset'; 
+export type FlipAnimationType = 'reveal' | 'reset';

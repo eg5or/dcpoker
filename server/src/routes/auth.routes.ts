@@ -16,4 +16,4 @@ router.post('/register', register);
 router.post('/login', login);
 router.get('/me', authMiddleware, getMe);
 
-export default router; 
+export default router;

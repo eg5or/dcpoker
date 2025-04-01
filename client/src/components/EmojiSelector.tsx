@@ -65,4 +65,4 @@ export function EmojiSelector({ selectedEmoji, onSelectEmoji }: EmojiSelectorPro
       )}
     </div>
   );
-} 
+}

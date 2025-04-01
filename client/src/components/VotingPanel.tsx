@@ -7,17 +7,22 @@ interface VotingPanelProps {
   onCoffeeEasterEgg?: (state: 'tilt' | 'fall' | 'shatter' | 'reset') => void;
 }
 
-export function VotingPanel({ currentVote, onVote, sequence, onCoffeeEasterEgg }: VotingPanelProps) {
+export function VotingPanel({
+  currentVote,
+  onVote,
+  sequence,
+  onCoffeeEasterEgg,
+}: VotingPanelProps) {
   const [coffeeClickCount, setCoffeeClickCount] = useState(0);
 
   const handleVote = (value: number) => {
     onVote(value);
-    
+
     // Проверяем на пасхалку только для кофе (0.1)
     if (value === 0.1) {
       const newCount = coffeeClickCount + 1;
       setCoffeeClickCount(newCount);
-      
+
       // Отслеживаем стадии пасхалки, начиная с 4-го клика
       if (newCount === 4 && onCoffeeEasterEgg) {
         onCoffeeEasterEgg('tilt');
@@ -40,10 +45,9 @@ export function VotingPanel({ currentVote, onVote, sequence, onCoffeeEasterEgg }
   return (
     <div className="mt-8">
       <h3 className="text-lg text-white mb-3">
-        {currentVote !== null 
+        {currentVote !== null
           ? `Ваш текущий выбор: ${currentVote === 0.1 ? '☕️' : currentVote === 0.5 ? '½' : currentVote}`
-          : 'Выберите карту для голосования:'
-        }
+          : 'Выберите карту для голосования:'}
       </h3>
       <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-11 gap-2 sm:gap-3 md:gap-4">
         {sequence.map((value) => (
@@ -51,8 +55,8 @@ export function VotingPanel({ currentVote, onVote, sequence, onCoffeeEasterEgg }
             key={value}
             onClick={() => handleVote(value)}
             className={`aspect-[2/3] text-white text-base sm:text-lg md:text-xl font-bold rounded-lg flex items-center justify-center transition-colors select-none ${
-              currentVote === value 
-                ? 'bg-blue-700 ring-2 ring-white transform scale-110 shadow-lg' 
+              currentVote === value
+                ? 'bg-blue-700 ring-2 ring-white transform scale-110 shadow-lg'
                 : 'bg-blue-500 hover:bg-blue-600'
             }`}
           >
@@ -62,4 +66,4 @@ export function VotingPanel({ currentVote, onVote, sequence, onCoffeeEasterEgg }
       </div>
     </div>
   );
-} 
+}

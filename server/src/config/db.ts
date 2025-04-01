@@ -17,4 +17,4 @@ export const connectDB = async (): Promise<void> => {
 };
 
 // Экспортируем как дефолтный экспорт для обратной совместимости
-export default connectDB; 
+export default connectDB;

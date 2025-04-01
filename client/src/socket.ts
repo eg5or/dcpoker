@@ -2,10 +2,9 @@ import { io, Socket } from 'socket.io-client';
 import { authService } from './services/auth.service';
 
 // Определяем URL сервера из переменных окружения
-const serverUrl = import.meta.env.VITE_SOCKET_URL || 
-  (window.location.hostname === 'localhost' 
-    ? 'http://localhost:3001' 
-    : window.location.origin);
+const serverUrl =
+  import.meta.env.VITE_SOCKET_URL ||
+  (window.location.hostname === 'localhost' ? 'http://localhost:3001' : window.location.origin);
 
 // Важно: отладочный лог URL сервера для проверки корректности подключения
 console.log('Socket.IO подключение к:', serverUrl);
@@ -18,8 +17,8 @@ const options = {
   timeout: 5000,
   transports: ['websocket', 'polling'], // Добавляем fallback на polling
   extraHeaders: {
-    'Authorization': `Bearer ${authService.getToken()}`
-  }
+    Authorization: `Bearer ${authService.getToken()}`,
+  },
 };
 
 // Создаем и экспортируем экземпляр сокета, который можно использовать напрямую
@@ -34,13 +33,13 @@ export const updateSocketAuth = () => {
     if (socket.connected) {
       socket.disconnect();
     }
-    
+
     // Создаем новое соединение с обновленным токеном
     socket = io(serverUrl, {
       ...options,
-      auth: { token }
+      auth: { token },
     });
-    
+
     console.log('Сокет обновлен с новым токеном');
   }
 };
@@ -48,4 +47,4 @@ export const updateSocketAuth = () => {
 // Вызываем функцию обновления при загрузке скрипта
 updateSocketAuth();
 
-export default socket; 
+export default socket;

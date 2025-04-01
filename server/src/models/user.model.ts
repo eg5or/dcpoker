@@ -17,63 +17,63 @@ export interface UserDocument extends Document {
 
 // Схема для пользователя
 const UserSchema = new Schema<UserDocument>({
-  username: { 
-    type: String, 
-    required: true, 
+  username: {
+    type: String,
+    required: true,
     trim: true,
     minlength: 3,
-    maxlength: 30
+    maxlength: 30,
   },
-  login: { 
-    type: String, 
-    required: true, 
+  login: {
+    type: String,
+    required: true,
     trim: true,
     minlength: 3,
-    maxlength: 30
+    maxlength: 30,
   },
-  password: { 
-    type: String, 
-    required: true 
+  password: {
+    type: String,
+    required: true,
   },
-  role: { 
-    type: String, 
-    enum: ['user', 'admin'], 
-    default: 'user' 
+  role: {
+    type: String,
+    enum: ['user', 'admin'],
+    default: 'user',
   },
-  isActive: { 
-    type: Boolean, 
-    default: true 
+  isActive: {
+    type: Boolean,
+    default: true,
   },
-  lastLoginAt: { 
-    type: Date, 
-    default: null 
+  lastLoginAt: {
+    type: Date,
+    default: null,
   },
-  lastActivityAt: { 
-    type: Date, 
-    default: Date.now 
+  lastActivityAt: {
+    type: Date,
+    default: Date.now,
   },
-  createdAt: { 
-    type: Date, 
-    default: Date.now 
-  }
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
 });
 
 // Виртуальное свойство name для совместимости с существующим кодом
-UserSchema.virtual('name').get(function(this: UserDocument) {
+UserSchema.virtual('name').get(function (this: UserDocument) {
   return this.username;
 });
 
 // Метод для сравнения пароля с хешем
-UserSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
+UserSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
 // Хук для хеширования пароля перед сохранением
-UserSchema.pre('save', async function(next) {
+UserSchema.pre('save', async function (next) {
   if (!this.isModified('password')) {
     return next();
   }
-  
+
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
@@ -92,14 +92,14 @@ UserSchema.index({ lastActivityAt: -1 });
 UserSchema.set('toJSON', {
   virtuals: true,
   versionKey: false,
-  transform: function(_doc, ret) {
+  transform: function (_doc, ret) {
     delete ret.password;
     return ret;
-  }
+  },
 });
 
 // Создание модели
 export const User = mongoose.model<UserDocument>('User', UserSchema);
 
 // Добавить экспорт дефолтной модели для совместимости
-export default User; 
+export default User;

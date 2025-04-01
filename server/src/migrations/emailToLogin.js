@@ -51,60 +51,51 @@ const migrateEmailToLogin = async () => {
     if (!indexDropped) {
       console.log('Продолжаем без удаления индекса');
     }
-    
+
     // Находим всех пользователей с email
     const users = await User.find({ email: { $exists: true, $ne: null } });
-    
+
     console.log(`Найдено ${users.length} пользователей с email`);
-    
+
     // Обновляем login для каждого пользователя
     let updated = 0;
     for (const user of users) {
       if (!user.login && user.email) {
         // Если login не установлен, копируем из email
-        await User.updateOne(
-          { _id: user._id },
-          { $set: { login: user.email } }
-        );
+        await User.updateOne({ _id: user._id }, { $set: { login: user.email } });
         updated++;
       }
     }
-    
+
     console.log(`Обновлено ${updated} пользователей`);
-    
+
     // Удаляем поле email у всех пользователей
     try {
-      const removeResult = await User.updateMany(
-        {},
-        { $unset: { email: "" } }
-      );
-      
+      const removeResult = await User.updateMany({}, { $unset: { email: '' } });
+
       console.log(`Удалено поле email у ${removeResult.modifiedCount} пользователей`);
     } catch (error) {
       console.error('Ошибка при удалении поля email:', error);
-      
+
       // Пробуем альтернативный подход - удаление поля у каждого пользователя отдельно
       console.log('Пробуем удалить поле email для каждого пользователя отдельно...');
       const allUsers = await User.find({});
       let removed = 0;
-      
+
       for (const user of allUsers) {
         try {
           if (user.email !== undefined) {
-            await User.updateOne(
-              { _id: user._id },
-              { $unset: { email: "" } }
-            );
+            await User.updateOne({ _id: user._id }, { $unset: { email: '' } });
             removed++;
           }
         } catch (userError) {
           console.error(`Ошибка при удалении поля email у пользователя ${user._id}:`, userError);
         }
       }
-      
+
       console.log(`Удалено поле email у ${removed} пользователей (альтернативный метод)`);
     }
-    
+
     console.log('Миграция успешно завершена');
   } catch (error) {
     console.error('Ошибка при миграции данных:', error);
@@ -118,4 +109,4 @@ const runMigration = async () => {
   process.exit(0);
 };
 
-runMigration(); 
+runMigration();

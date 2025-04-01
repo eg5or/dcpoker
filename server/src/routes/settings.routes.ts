@@ -19,4 +19,4 @@ router.post('/me/favorites/emoji', UserSettingsController.addFavoriteEmoji);
 // Маршрут для удаления эмодзи из избранного
 router.delete('/me/favorites/emoji/:emoji', UserSettingsController.removeFavoriteEmoji);
 
-export default router; 
+export default router;

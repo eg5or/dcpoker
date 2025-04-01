@@ -20,13 +20,13 @@ export function ErrorMessage({ message }: ErrorMessageProps) {
   // Автоматически скрываем сообщение об ошибке через 5 секунд
   useEffect(() => {
     if (!message) return;
-    
+
     const timer = setTimeout(() => {
       setIsClosing(true);
       // Ждем завершения анимации
       setTimeout(() => setVisible(false), 300);
     }, 5000); // Уменьшаем время отображения до 5 секунд
-    
+
     return () => clearTimeout(timer);
   }, [message]);
 
@@ -39,7 +39,7 @@ export function ErrorMessage({ message }: ErrorMessageProps) {
   if (!visible || !message) return null;
 
   return (
-    <div 
+    <div
       className={`fixed bottom-4 left-4 max-w-sm bg-red-500 text-white p-4 rounded-lg shadow-lg flex items-center justify-between z-50 transition-all duration-300 ${
         isClosing ? 'opacity-0 transform -translate-y-2' : 'opacity-100'
       }`}
@@ -54,4 +54,4 @@ export function ErrorMessage({ message }: ErrorMessageProps) {
       </button>
     </div>
   );
-} 
+}

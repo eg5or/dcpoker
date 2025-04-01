@@ -16,4 +16,4 @@ router.get('/me', StatsController.getUserStats);
 // Маршрут для получения статистики конкретного пользователя
 router.get('/:userId', StatsController.getUserStats);
 
-export default router; 
+export default router;

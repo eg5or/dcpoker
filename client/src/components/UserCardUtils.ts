@@ -36,9 +36,9 @@ export const getRelativeTimeString = (timestamp: number): string => {
   if (hours < 24) return `${hours} ${getHoursForm(hours)} назад`;
   if (days === 1) return 'вчера';
   if (days < 7) return `${days} ${getDaysForm(days)} назад`;
-  
+
   return new Date(timestamp).toLocaleDateString('ru-RU', {
     day: 'numeric',
-    month: 'short'
+    month: 'short',
   });
-}; 
+};

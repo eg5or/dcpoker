@@ -46,60 +46,60 @@ export interface VotingSessionDocument extends Document {
 
 // Схема для голоса в сессии
 const VoteSchema = new Schema<Vote>({
-  userId: { 
-    type: Schema.Types.Mixed, 
+  userId: {
+    type: Schema.Types.Mixed,
     required: true,
     validate: {
-      validator: function(v: any) {
+      validator: function (v: any) {
         // Валидируем, что userId - либо ObjectId, либо строка
         return mongoose.Types.ObjectId.isValid(v) || (typeof v === 'string' && v.length > 0);
       },
-      message: 'userId должен быть валидным ObjectId или непустой строкой'
-    }
+      message: 'userId должен быть валидным ObjectId или непустой строкой',
+    },
   },
   username: { type: String, required: true },
   initialVote: { type: Number, required: true },
   finalVote: { type: Number, required: true },
   votedAt: { type: Date, default: Date.now },
   changedAfterReveal: { type: Boolean, default: false },
-  changedAfterRevealCounted: { type: Boolean, default: false }
+  changedAfterRevealCounted: { type: Boolean, default: false },
 });
 
 // Схема для эмодзи в сессии
 const SessionEmojiSchema = new Schema<SessionEmoji>({
   senderId: { type: Schema.Types.ObjectId, required: true, ref: 'User' },
-  targetId: { 
-    type: Schema.Types.Mixed, 
+  targetId: {
+    type: Schema.Types.Mixed,
     required: true,
     validate: {
-      validator: function(v: any) {
+      validator: function (v: any) {
         // Валидируем, что targetId - либо ObjectId, либо строка
         return mongoose.Types.ObjectId.isValid(v) || (typeof v === 'string' && v.length > 0);
       },
-      message: 'targetId должен быть валидным ObjectId или непустой строкой'
-    }
+      message: 'targetId должен быть валидным ObjectId или непустой строкой',
+    },
   },
   senderName: { type: String, required: true },
   targetName: { type: String, required: true },
   emoji: { type: String, required: true },
-  thrownAt: { type: Date, default: Date.now }
+  thrownAt: { type: Date, default: Date.now },
 });
 
 // Схема для статистики согласованности
 const ConsistencySchema = new Schema<ConsistencyResult>({
   emoji: { type: String, required: true },
-  description: { type: String, required: true }
+  description: { type: String, required: true },
 });
 
 // Схема для сессии голосования
 const VotingSessionSchema = new Schema<VotingSessionDocument>({
   createdBy: { type: Schema.Types.ObjectId, required: true, ref: 'User' },
   title: { type: String, required: true },
-  status: { 
-    type: String, 
-    required: true, 
+  status: {
+    type: String,
+    required: true,
     enum: ['active', 'revealed', 'completed'],
-    default: 'active'
+    default: 'active',
   },
   participants: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   votes: [VoteSchema],
@@ -110,7 +110,7 @@ const VotingSessionSchema = new Schema<VotingSessionDocument>({
   consistency: { type: ConsistencySchema },
   createdAt: { type: Date, default: Date.now },
   revealedAt: { type: Date },
-  completedAt: { type: Date }
+  completedAt: { type: Date },
 });
 
 // Индексы для оптимизации запросов
@@ -120,7 +120,10 @@ VotingSessionSchema.index({ createdAt: -1 });
 VotingSessionSchema.index({ createdBy: 1, createdAt: -1 });
 
 // Создание модели
-export const VotingSession = mongoose.model<VotingSessionDocument>('VotingSession', VotingSessionSchema);
+export const VotingSession = mongoose.model<VotingSessionDocument>(
+  'VotingSession',
+  VotingSessionSchema
+);
 
 // Экспорт по умолчанию для совместимости
-export default VotingSession; 
+export default VotingSession;

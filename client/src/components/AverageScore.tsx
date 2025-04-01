@@ -16,9 +16,7 @@ export function AverageScore({ averageVote, consistency }: AverageScoreProps) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl text-white mb-2">Средняя оценка</h2>
-          <p className="text-4xl font-bold text-blue-500">
-            {averageVote}
-          </p>
+          <p className="text-4xl font-bold text-blue-500">{averageVote}</p>
         </div>
         {consistency && (
           <div className="text-center">
@@ -29,4 +27,4 @@ export function AverageScore({ averageVote, consistency }: AverageScoreProps) {
       </div>
     </div>
   );
-} 
+}

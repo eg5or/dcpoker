@@ -13,8 +13,7 @@ export function VoteChangeAlert({ changedUsers, onRecalculate }: VoteChangeAlert
           <p className="font-medium">
             {changedUsers.length === 1
               ? `Пользователь ${changedUsers[0]} изменил свою оценку`
-              : `Пользователи ${changedUsers.join(', ')} изменили свои оценки`
-            }
+              : `Пользователи ${changedUsers.join(', ')} изменили свои оценки`}
           </p>
           <p className="text-sm mt-1">Необходимо пересчитать среднее значение</p>
         </div>
@@ -27,4 +26,4 @@ export function VoteChangeAlert({ changedUsers, onRecalculate }: VoteChangeAlert
       </div>
     </div>
   );
-} 
+}
