@@ -1,15 +1,18 @@
 import { FormEvent, useRef, useState } from 'react';
 import { useOnClickOutside } from '../../hooks/useOnClickOutside';
-import { AVAILABLE_EMOJIS } from '../../types';
+import { AVAILABLE_EMOJIS, FIBONACCI_SEQUENCE, Room } from '../../types';
 
 interface CreateRoomModalProps {
   onClose: () => void;
-  onCreateRoom: (name: string, emoji: string) => Promise<void>;
+  onCreateRoom: (name: string, description?: string, settings?: object, code?: string, emoji?: string) => Promise<Room | null>;
 }
 
 export const CreateRoomModal = ({ onClose, onCreateRoom }: CreateRoomModalProps) => {
   const [roomName, setRoomName] = useState<string>('');
+  const [description, setDescription] = useState<string>('');
   const [selectedEmoji, setSelectedEmoji] = useState<string>(AVAILABLE_EMOJIS[0]);
+  const [allowObservers, setAllowObservers] = useState<boolean>(true);
+  const [autoReveal, setAutoReveal] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -38,8 +41,20 @@ export const CreateRoomModal = ({ onClose, onCreateRoom }: CreateRoomModalProps)
     setIsSubmitting(true);
     setError(null);
 
+    const settings = {
+      votingSequence: FIBONACCI_SEQUENCE,
+      allowObservers,
+      autoReveal
+    };
+
     try {
-      await onCreateRoom(roomName.trim(), selectedEmoji);
+      await onCreateRoom(
+        roomName.trim(), 
+        description.trim() || undefined, 
+        settings,
+        undefined,
+        selectedEmoji
+      );
     } catch (e) {
       setError('Ошибка при создании комнаты');
     } finally {
@@ -77,7 +92,21 @@ export const CreateRoomModal = ({ onClose, onCreateRoom }: CreateRoomModalProps)
             />
           </div>
           
-          <div className="mb-6">
+          <div className="mb-4">
+            <label htmlFor="description" className="block text-white mb-2">
+              Описание (необязательно):
+            </label>
+            <textarea
+              id="description"
+              className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Введите описание комнаты"
+              rows={2}
+            />
+          </div>
+          
+          <div className="mb-4">
             <label className="block text-white mb-2">
               Эмодзи комнаты:
             </label>
@@ -96,6 +125,36 @@ export const CreateRoomModal = ({ onClose, onCreateRoom }: CreateRoomModalProps)
                   {emoji}
                 </button>
               ))}
+            </div>
+          </div>
+          
+          <div className="mb-6">
+            <h3 className="block text-white mb-2">Настройки комнаты:</h3>
+            <div className="space-y-2">
+              <div className="flex items-center">
+                <input
+                  id="allowObservers"
+                  type="checkbox"
+                  checked={allowObservers}
+                  onChange={() => setAllowObservers(!allowObservers)}
+                  className="mr-2 h-4 w-4"
+                />
+                <label htmlFor="allowObservers" className="text-white">
+                  Разрешить наблюдателей
+                </label>
+              </div>
+              <div className="flex items-center">
+                <input
+                  id="autoReveal"
+                  type="checkbox"
+                  checked={autoReveal}
+                  onChange={() => setAutoReveal(!autoReveal)}
+                  className="mr-2 h-4 w-4"
+                />
+                <label htmlFor="autoReveal" className="text-white">
+                  Автоматическое раскрытие карт
+                </label>
+              </div>
             </div>
           </div>
           

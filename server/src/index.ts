@@ -4,11 +4,15 @@ import express from 'express';
 import { createServer } from 'http';
 import mongoose from 'mongoose';
 import { Server, Socket } from 'socket.io';
-import { connectDB } from './config/db.js';
 import { verifyToken } from './config/jwt.js';
+import { RoomInterface } from './models/room.model.js';
 import { User } from './models/user.model.js';
 import authRoutes from './routes/auth.routes.js';
+import roomRoutes from './routes/room.routes.js';
+import sessionRoutes from './routes/session.routes.js';
+import settingsRoutes from './routes/settings.routes.js';
 import statsRoutes from './routes/stats.routes.js';
+import { RoomService } from './services/room.service.js';
 import { StatsService } from './services/stats.service.js';
 import { calculateAverageVote } from './utils/calculateAverageVote.js';
 import { completeCurrentSession } from './utils/completeCurrentSession.js';
@@ -17,12 +21,11 @@ import { emojisShake } from './utils/emojisShake.js';
 import { initializeIO } from './utils/io.js';
 import { throwEmoji } from './utils/throwEmoji.js';
 import { updateSessionOnReveal } from './utils/updateSessionOnReveal.js';
+
 // Загружаем переменные окружения
 dotenv.config();
 
-// Подключаемся к базе данных
-connectDB();
-
+// Инициализируем Express приложение
 const app = express();
 const httpServer = createServer(app);
 
@@ -60,10 +63,48 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Подключаем маршруты аутентификации
+// Подключаем маршруты API
+console.log('🛠️ Подключение маршрутов API...');
 app.use('/api/auth', authRoutes);
+console.log('✅ Подключены маршруты аутентификации');
 app.use('/api/stats', statsRoutes);
+console.log('✅ Подключены маршруты статистики');
+app.use('/api/settings', settingsRoutes);
+console.log('✅ Подключены маршруты настроек');
+app.use('/api/sessions', sessionRoutes);
+console.log('✅ Подключены маршруты сессий');
+app.use('/api/rooms', roomRoutes);
+console.log('✅ Подключены маршруты комнат');
 
+// Обработчик ошибок для неверных маршрутов
+app.use((req, res) => {
+  res.status(404).json({ message: 'Маршрут не найден' });
+});
+
+// Обработчик ошибок для ошибок сервера
+app.use((err: Error, req: express.Request, res: express.Response) => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Внутренняя ошибка сервера' });
+});
+
+// Подключаемся к MongoDB
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/dcpoker';
+
+// Функция для подключения к БД (перенесено из config/db.js)
+export const connectDB = async () => {
+  try {
+    await mongoose.connect(MONGODB_URI);
+    console.log('✅ Подключено к MongoDB');
+  } catch (error) {
+    console.error('❌ Ошибка подключения к MongoDB:', error);
+    process.exit(1);
+  }
+};
+
+// Подключаемся к базе данных
+connectDB();
+
+// Настройка Socket.IO
 const io = new Server(httpServer, {
   cors: {
     origin: function (origin, callback) {
@@ -101,6 +142,7 @@ export interface AuthenticatedSocket extends Socket {
     id: string;
     name: string;
   };
+  roomCode?: string; // Добавляем код комнаты, к которой подключен сокет
 }
 
 // Обновляем использование io.use с правильным типом
@@ -129,15 +171,6 @@ io.use(async (socket: AuthenticatedSocket, next) => {
   next();
 });
 
-// Текущая активная сессия голосования
-let currentSession: VotingSessionDocument | null = null;
-
-// Функция для безопасной работы с сессией
-export function useSession<T>(session: VotingSessionDocument | null, callback: (session: VotingSessionDocument) => T): T | null {
-  if (!session) return null;
-  return callback(session as VotingSessionDocument);
-}
-
 // Тип для пользователя в состоянии игры
 type GameStateUser = {
   id: string;
@@ -165,43 +198,118 @@ export type GameState = {
   } | null;
 };
 
-const gameState: GameState = {
-  users: [],
-  isRevealed: false,
-  averageVote: null,
-  usersChangedVoteAfterReveal: [],
-  consistency: null,
+// Карта активных сессий по комнатам
+type RoomSessions = {
+  [roomCode: string]: {
+    gameState: GameState;
+    currentSession: VotingSessionDocument | null;
+  };
 };
+
+// Карта состояний игры по комнатам
+const roomSessions: RoomSessions = {};
+
+// Функция для безопасной работы с сессией
+export function useSession<T>(session: VotingSessionDocument | null, callback: (session: VotingSessionDocument) => T): T | null {
+  if (!session) return null;
+  return callback(session as VotingSessionDocument);
+}
+
+// Функция для получения или создания состояния комнаты
+function getRoomSession(roomCode: string): { gameState: GameState; currentSession: VotingSessionDocument | null } {
+  if (!roomSessions[roomCode]) {
+    roomSessions[roomCode] = {
+      gameState: {
+        users: [],
+        isRevealed: false,
+        averageVote: null,
+        usersChangedVoteAfterReveal: [],
+        consistency: null,
+      },
+      currentSession: null,
+    };
+  }
+  return roomSessions[roomCode];
+}
 
 io.on('connection', (socket: AuthenticatedSocket) => {
   console.log('User connected:', socket.id);
 
-  socket.emit('game:state', gameState);
+  // При подключении отправляем пустое состояние игры
+  // Реальное состояние будет отправлено после присоединения к комнате
+  socket.emit('game:state', {
+    users: [],
+    isRevealed: false,
+    averageVote: null,
+    usersChangedVoteAfterReveal: [],
+    consistency: null,
+  });
 
-  socket.on('user:join', async (name: string) => {
-    console.log('User joining:', socket.id, name);
+  // Обработка присоединения к комнате
+  socket.on('room:join', async (roomCode: string, name: string) => {
+    console.log(`User ${name} (socket.id: ${socket.id}) joining room ${roomCode}`);
+    
+    // Проверяем, существует ли комната
+    const room = await RoomService.getRoomByCode(roomCode);
+    if (!room) {
+      console.error(`Room with code ${roomCode} not found!`);
+      socket.emit('room:error', 'Комната не найдена');
+      return;
+    }
+    
+    console.log(`Room found: ${room.name} (ID: ${(room as any)._id.toString()})`);
 
-    // Создаем или получаем текущую сессию
+    // Если сокет уже был в другой комнате, отсоединяем его
+    if (socket.roomCode && socket.roomCode !== roomCode) {
+      console.log(`Socket was in room ${socket.roomCode}, disconnecting before joining ${roomCode}`);
+      socket.leave(socket.roomCode);
+      
+      // Обновляем статус пользователя в старой комнате
+      const oldRoomSession = getRoomSession(socket.roomCode);
+      const oldUser = oldRoomSession.gameState.users.find((u) => u.id === socket.id);
+      if (oldUser) {
+        console.log(`Marking user ${oldUser.name} as offline in the previous room ${socket.roomCode}`);
+        oldUser.isOnline = false;
+        io.to(socket.roomCode).emit('game:state', oldRoomSession.gameState);
+      }
+    }
+
+    // Присоединяем сокет к комнате
+    console.log(`Joining socket ${socket.id} to room ${roomCode}`);
+    socket.join(roomCode);
+    socket.roomCode = roomCode;
+
+    // Обновляем время активности комнаты
+    const roomId = (room as RoomInterface & { _id: mongoose.Types.ObjectId })._id.toString();
+    console.log(`Updating last activity for room ${roomId}`);
+    await RoomService.updateLastActivity(roomId);
+
+    // Получаем или создаем сессию для комнаты
+    const { gameState, currentSession } = getRoomSession(roomCode);
+
+    // Создаем/обновляем сессию голосования, если пользователь аутентифицирован
     if (socket.user && socket.user.id) {
-      currentSession = await createOrUpdateVotingSession(currentSession, socket.user.id);
+      console.log(`Authenticated user ${socket.user.name} (ID: ${socket.user.id}) joined the room`);
+      roomSessions[roomCode].currentSession = await createOrUpdateVotingSession(currentSession, socket.user.id);
 
       // Добавляем пользователя в список участников сессии, если его там еще нет
-      if (currentSession) {
-        const participants = useSession(currentSession, session => session.get('participants')) || [];
+      if (roomSessions[roomCode].currentSession) {
+        const participants = useSession(roomSessions[roomCode].currentSession, session => session.get('participants')) || [];
         const userId = new mongoose.Types.ObjectId(socket.user.id);
 
-        if (
-          !participants.some((p: mongoose.Types.ObjectId) => p.toString() === userId.toString())
-        ) {
+        if (!participants.some((p: mongoose.Types.ObjectId) => p.toString() === userId.toString())) {
+          console.log(`Adding user ${socket.user.name} to session participants`);
           participants.push(userId);
-          useSession(currentSession, session => session.set({ participants }));
-          await useSession(currentSession, session => session.save());
+          useSession(roomSessions[roomCode].currentSession, session => session.set({ participants }));
+          await useSession(roomSessions[roomCode].currentSession, session => session.save());
         }
       }
     }
 
+    // Обновляем пользователя в списке участников комнаты
     const existingUser = gameState.users.find((u) => u.name === name);
     if (existingUser) {
+      console.log(`User ${name} already exists in room ${roomCode}, updating socket ID from ${existingUser.id} to ${socket.id}`);
       existingUser.id = socket.id;
       existingUser.isOnline = true;
       existingUser.vote = null;
@@ -209,6 +317,7 @@ io.on('connection', (socket: AuthenticatedSocket) => {
       existingUser.joinedAt = Date.now();
       existingUser.emojiAttacks = {};
     } else {
+      console.log(`Adding new user ${name} to room ${roomCode}`);
       const user: GameStateUser = {
         id: socket.id,
         name,
@@ -221,12 +330,22 @@ io.on('connection', (socket: AuthenticatedSocket) => {
       gameState.users.push(user);
     }
 
-    console.log('Current users:', gameState.users);
-    io.emit('game:state', gameState);
+    console.log(`Users in room ${roomCode}:`, gameState.users.map(u => `${u.name} (${u.isOnline ? 'online' : 'offline'})`));
+    
+    // Отправляем обновленное состояние всем в комнате
+    console.log(`Emitting updated game state to room ${roomCode}`);
+    io.to(roomCode).emit('game:state', gameState);
   });
 
   socket.on('user:vote', (value: number) => {
-    console.log('Vote received:', socket.id, value);
+    if (!socket.roomCode) {
+      socket.emit('room:error', 'Вы не присоединились к комнате');
+      return;
+    }
+
+    console.log('Vote received:', socket.id, value, 'in room', socket.roomCode);
+    const { gameState } = getRoomSession(socket.roomCode);
+    
     const user = gameState.users.find((u) => u.id === socket.id);
     if (user) {
       if (gameState.isRevealed && user.vote !== null && user.vote !== value) {
@@ -237,30 +356,49 @@ io.on('connection', (socket: AuthenticatedSocket) => {
       }
       user.vote = value;
       console.log('Vote registered for user:', user);
-      io.emit('game:state', gameState);
+      io.to(socket.roomCode).emit('game:state', gameState);
     } else {
       console.log('User not found:', socket.id);
     }
   });
 
   socket.on('votes:reveal', async () => {
+    if (!socket.roomCode) {
+      socket.emit('room:error', 'Вы не присоединились к комнате');
+      return;
+    }
+
+    const { gameState, currentSession } = getRoomSession(socket.roomCode);
     gameState.isRevealed = true;
     calculateAverageVote(gameState);
 
     // Обновляем сессию и статистику при раскрытии карт
     await updateSessionOnReveal(currentSession, gameState, io);
 
-    io.emit('game:state', gameState);
+    io.to(socket.roomCode).emit('game:state', gameState);
   });
 
   socket.on(
     'throw:emoji',
-    async (targetUserId: string,
-      emoji: string,
-      placement: { x: number; y: number; rotation: number }) => await throwEmoji(targetUserId, emoji, placement, gameState, io, socket, currentSession)
+    async (targetUserId: string, emoji: string, placement: { x: number; y: number; rotation: number }) => {
+      if (!socket.roomCode) {
+        socket.emit('room:error', 'Вы не присоединились к комнате');
+        return;
+      }
+
+      const { gameState, currentSession } = getRoomSession(socket.roomCode);
+      await throwEmoji(targetUserId, emoji, placement, gameState, io, socket, currentSession);
+    }
   );
 
   socket.on('game:reset', async () => {
+    if (!socket.roomCode) {
+      socket.emit('room:error', 'Вы не присоединились к комнате');
+      return;
+    }
+
+    const { gameState, currentSession } = getRoomSession(socket.roomCode);
+
     // Завершаем текущую сессию перед сбросом
     await completeCurrentSession(currentSession, gameState);
 
@@ -278,19 +416,34 @@ io.on('connection', (socket: AuthenticatedSocket) => {
 
     // Создаем новую сессию для следующего раунда
     if (socket.user && socket.user.id) {
-      await createOrUpdateVotingSession(currentSession, socket.user.id);
+      roomSessions[socket.roomCode].currentSession = await createOrUpdateVotingSession(null, socket.user.id);
     }
 
     // Отправляем обновленное состояние с временем сброса
-    io.emit('game:state', { ...gameState, resetTime });
+    io.to(socket.roomCode).emit('game:state', { ...gameState, resetTime });
 
     // После обновления состояния отправляем сигнал для анимации падения
-    io.emit('emojis:fall', resetTime);
+    io.to(socket.roomCode).emit('emojis:fall', resetTime);
   });
 
-  socket.on('emojis:shake', async (userId: string) => await emojisShake(userId, gameState, io, socket));
+  socket.on('emojis:shake', async (userId: string) => {
+    if (!socket.roomCode) {
+      socket.emit('room:error', 'Вы не присоединились к комнате');
+      return;
+    }
+
+    const { gameState } = getRoomSession(socket.roomCode);
+    await emojisShake(userId, gameState, io, socket);
+  });
 
   socket.on('users:reset', () => {
+    if (!socket.roomCode) {
+      socket.emit('room:error', 'Вы не присоединились к комнате');
+      return;
+    }
+
+    const { gameState } = getRoomSession(socket.roomCode);
+    
     // Очищаем список пользователей
     gameState.users = [];
     gameState.isRevealed = false;
@@ -298,13 +451,20 @@ io.on('connection', (socket: AuthenticatedSocket) => {
     gameState.usersChangedVoteAfterReveal = [];
     gameState.consistency = null;
 
-    // Отправляем всем клиентам команду на разлогинивание
-    io.emit('force:logout');
+    // Отправляем всем клиентам в комнате команду на разлогинивание
+    io.to(socket.roomCode).emit('force:logout');
     // Отправляем обновленное состояние
-    io.emit('game:state', gameState);
+    io.to(socket.roomCode).emit('game:state', gameState);
   });
 
   socket.on('recalculate:average', async () => {
+    if (!socket.roomCode) {
+      socket.emit('room:error', 'Вы не присоединились к комнате');
+      return;
+    }
+
+    const { gameState, currentSession } = getRoomSession(socket.roomCode);
+    
     if (gameState.isRevealed) {
       calculateAverageVote(gameState);
 
@@ -402,27 +562,32 @@ io.on('connection', (socket: AuthenticatedSocket) => {
         user.changedVoteAfterReveal = false;
       });
 
-      io.emit('game:state', gameState);
+      io.to(socket.roomCode).emit('game:state', gameState);
     }
   });
 
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
-    const user = gameState.users.find((u) => u.id === socket.id);
-    if (user) {
-      user.isOnline = false;
-      io.emit('game:state', gameState);
+
+    // Если пользователь был в комнате, обновляем его статус
+    if (socket.roomCode) {
+      const { gameState } = getRoomSession(socket.roomCode);
+      const user = gameState.users.find((u) => u.id === socket.id);
+      if (user) {
+        user.isOnline = false;
+        io.to(socket.roomCode).emit('game:state', gameState);
+      }
     }
   });
 });
 
 const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log('CORS origins:', corsOrigins);
+  console.log(`🚀 Сервер запущен на порту ${PORT}`);
+  console.log('🔒 CORS origins:', corsOrigins);
 
   // Пересчитываем глобальную статистику по изменениям голосов
   StatsService.recalculateGlobalChangedVotes()
-    .then(() => console.log('Пересчет глобальной статистики изменённых голосов завершен'))
-    .catch((err) => console.error('Ошибка при пересчете статистики:', err));
+    .then(() => console.log('📊 Пересчет глобальной статистики изменённых голосов завершен'))
+    .catch((err) => console.error('❌ Ошибка при пересчете статистики:', err));
 });

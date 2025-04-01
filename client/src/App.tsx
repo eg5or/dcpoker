@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { toast } from 'react-hot-toast';
 import { AuthPage } from './components/auth/AuthPage';
 import { GameBoard } from './components/GameBoard';
 import { Header } from './components/Header';
 import { ProfilePage } from './components/profile/ProfilePage';
+import { CreateRoomModal } from './components/rooms/CreateRoomModal';
 import { LandingPage } from './components/rooms/LandingPage';
 import { animateEmojisFalling } from './components/UserCardEffects';
 import useSocket from './hooks/useSocket';
@@ -40,6 +42,17 @@ type EmojiThrowData = {
   };
 };
 
+// Вспомогательная функция для получения ID комнаты
+const getRoomId = (room: Room): string | undefined => {
+  if (room.id && typeof room.id === 'string') {
+    return room.id;
+  }
+  if (room._id && typeof room._id === 'string') {
+    return room._id;
+  }
+  return undefined;
+};
+
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(authService.isAuthenticated());
   const [user, setUser] = useState(authService.getUser());
@@ -52,6 +65,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [currentVote, setCurrentVote] = useState<number | null>(null);
   const [showProfile, setShowProfile] = useState(false);
+  const [showCreateRoomModal, setShowCreateRoomModal] = useState(false);
   const [gameState, setGameState] = useState<GameState>({
     users: [],
     isRevealed: false,
@@ -81,59 +95,198 @@ function App() {
   const [selectedEmoji, setSelectedEmoji] = useState<string>(getSavedEmoji());
 
   // Загрузка комнат
-  const loadRooms = useCallback(async () => {
-    if (!isAuthenticated) return;
+  const loadRooms = useCallback(async (): Promise<Room[]> => {
+    if (!isAuthenticated) return [];
     
     setIsRoomsLoading(true);
     try {
+      console.log('Загружаем список комнат...');
       const fetchedRooms = await roomService.getAllRooms();
+      console.log('Загружено комнат:', fetchedRooms.length);
+      console.log('Полученные комнаты:', fetchedRooms);
       setRooms(fetchedRooms);
       
-      // Проверяем, есть ли сохраненная комната
-      const lastRoomId = roomService.getLastRoom();
-      if (lastRoomId) {
-        const room = fetchedRooms.find(r => r.id === lastRoomId);
-        if (room) {
-          setSelectedRoom(room);
+      // Проверяем, есть ли сохраненная комната напрямую из localStorage
+      try {
+        // Явное приведение к строке при чтении из localStorage
+        const lastRoomId = localStorage.getItem('scrum_poker_last_room');
+        console.log('Получено ID последней комнаты из localStorage:', lastRoomId);
+        console.log('Тип ID последней комнаты:', typeof lastRoomId);
+        
+        if (lastRoomId && lastRoomId !== 'undefined' && lastRoomId !== 'null' && fetchedRooms.length > 0) {
+          console.log('Ищем комнату с ID:', lastRoomId);
+          console.log('ID комнат в списке:', fetchedRooms.map(r => ({ id: getRoomId(r), name: r.name })));
+          
+          // Ищем комнату по ID или _id
+          const room = fetchedRooms.find(r => getRoomId(r) === lastRoomId);
+          console.log('Поиск комнаты по ID:', lastRoomId, 'Результат:', room ? 'найдена' : 'не найдена');
+          
+          if (room) {
+            console.log('Найдена последняя комната:', room.name, '(ID:', getRoomId(room), 'Code:', room.code, ')');
+            // Устанавливаем выбранную комнату
+            setSelectedRoom(room);
+            
+            // Подключаемся к комнате через сокет, если он доступен
+            if (socket) {
+              console.log('Подключаемся к последней комнате по коду:', room.code);
+              socket.emit('room:join', room.code, user?.name || '');
+              setIsJoined(true);
+            } else {
+              console.warn('Socket недоступен при восстановлении комнаты');
+            }
+          } else {
+            console.log('Комната с ID', lastRoomId, 'не найдена в списке комнат');
+            // Если комната не найдена, очищаем localStorage
+            localStorage.removeItem('scrum_poker_last_room');
+          }
+        } else {
+          console.log('Нет корректной сохраненной комнаты или список комнат пустой:', 
+                     'lastRoomId:', lastRoomId, 
+                     'fetchedRooms.length:', fetchedRooms.length);
+          
+          // Если lastRoomId === 'undefined' или 'null', очищаем localStorage
+          if (lastRoomId === 'undefined' || lastRoomId === 'null') {
+            console.log('Удаляем некорректное значение ID комнаты из localStorage');
+            localStorage.removeItem('scrum_poker_last_room');
+          }
         }
+      } catch (error) {
+        console.error('Ошибка при работе с localStorage:', error);
       }
+      
+      return fetchedRooms;
     } catch (error) {
       console.error('Ошибка при загрузке комнат:', error);
+      return [];
     } finally {
       setIsRoomsLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, socket, user?.name]);
 
-  // Обработчик создания комнаты
-  const handleCreateRoom = async (name: string, emoji: string): Promise<Room | null> => {
+  // При успешной авторизации загружаем список комнат
+  useEffect(() => {
+    if (isAuthenticated) {
+      console.log('Пользователь аутентифицирован, загружаем комнаты...');
+      loadRooms().catch(error => {
+        console.error('Ошибка при начальной загрузке комнат:', error);
+      });
+    } else {
+      console.log('Пользователь не аутентифицирован, сбрасываем состояние комнат');
+      setRooms([]);
+      setSelectedRoom(null);
+    }
+  }, [isAuthenticated, loadRooms]);
+
+  // Эффект для мониторинга изменений selectedRoom и обновления localStorage
+  useEffect(() => {
+    if (selectedRoom) {
+      // Получаем актуальный ID комнаты
+      const roomId = getRoomId(selectedRoom);
+      console.log('Выбрана комната:', selectedRoom.name, '(ID:', roomId, ')');
+      
+      if (roomId && typeof roomId === 'string') {
+        try {
+          // Принудительно очищаем storage перед записью
+          localStorage.removeItem('scrum_poker_last_room');
+          // Затем записываем новое значение
+          localStorage.setItem('scrum_poker_last_room', roomId);
+          console.log('ID комнаты сохранен напрямую в localStorage:', roomId);
+          console.log('Проверка: текущее значение в localStorage:', localStorage.getItem('scrum_poker_last_room'));
+        } catch (error) {
+          console.error('Ошибка при сохранении ID комнаты в localStorage:', error);
+        }
+      } else {
+        console.error('Не удалось определить ID комнаты для сохранения:', selectedRoom);
+      }
+    } else {
+      console.log('Комната не выбрана');
+    }
+  }, [selectedRoom]);
+
+  // Функция для создания комнаты
+  const handleCreateRoom = async (name: string, description?: string, settings?: object, code?: string, emoji?: string): Promise<Room | null> => {
     try {
-      const newRoom = await roomService.createRoom(name, emoji);
-      if (newRoom) {
-        setRooms(prevRooms => [...prevRooms, newRoom]);
-        return newRoom;
+      // Создание комнаты через сервис
+      const room = await roomService.createRoom(name, description, settings, code, emoji);
+      
+      if (room) {
+        toast.success(`Комната "${room.name}" создана!`);
+        
+        // Обновляем список доступных комнат
+        await loadRooms();
+        
+        // Получаем актуальный ID комнаты
+        const roomId = getRoomId(room);
+        
+        // Проверка, что у комнаты есть валидный ID
+        if (!roomId || typeof roomId !== 'string') {
+          console.error('Созданная комната не имеет валидного ID:', room);
+          return room;
+        }
+        
+        console.log('Созданная комната:', room);
+        console.log('ID комнаты для сохранения:', roomId, 'Тип:', typeof roomId);
+        
+        // Сохраняем ID комнаты в localStorage напрямую
+        try {
+          localStorage.removeItem('scrum_poker_last_room');
+          localStorage.setItem('scrum_poker_last_room', roomId);
+          console.log('ID созданной комнаты сохранен в localStorage:', roomId);
+          console.log('Значение в localStorage после сохранения:', localStorage.getItem('scrum_poker_last_room'));
+        } catch (error) {
+          console.error('Ошибка при сохранении ID комнаты в localStorage:', error);
+        }
+        
+        // Переходим в созданную комнату
+        setSelectedRoom(room);
+        
+        // После создания комнаты, присоединяемся к ней через сокет
+        if (socket) {
+          console.log('Подключаемся к созданной комнате:', room.code);
+          socket.emit('room:join', room.code, user?.name || '');
+          setIsJoined(true);
+        }
+        
+        return room;
       }
       return null;
     } catch (error) {
       console.error('Ошибка при создании комнаты:', error);
+      toast.error('Не удалось создать комнату');
       return null;
     }
   };
 
-  // Обработчик выбора комнаты
+  // Обработчик выбора комнаты - должен принимать только строку (roomId)
   const handleSelectRoom = (roomId: string) => {
-    const room = rooms.find(r => r.id === roomId);
-    if (!room) return;
-    
+    console.log('[App] handleSelectRoom вызван с ID:', roomId);
+
+    // Находим комнату по ID
+    const room = rooms.find((r) => {
+      const id = getRoomId(r);
+      return id !== undefined && id === roomId;
+    });
+
+    if (!room) {
+      console.error('[App] Комната не найдена по ID:', roomId);
+      return;
+    }
+
+    console.log('[App] Выбрана комната:', room.name, 'ID:', roomId, 'Код:', room.code);
+
+    try {
+      localStorage.setItem('scrum_poker_last_room', roomId);
+      console.log('[App] Сохранено в localStorage:', roomId);
+    } catch (error) {
+      console.error('[App] Ошибка при сохранении в localStorage:', error);
+    }
+
     setSelectedRoom(room);
-    roomService.saveLastRoom(roomId);
     
-    if (isJoined) {
-      // Если уже подключены к сокету, присоединяемся к новой комнате
-      socket?.emit('room:join', roomId);
-    } else if (socket) {
-      // Подключаемся к комнате при первом выборе
-      socket.emit('user:join', user?.name || '', roomId);
-      setIsJoined(true);
+    if (socket && user) {
+      socket.emit('room:join', room.code, user.name);
+    } else {
+      console.warn('[App] Socket или user недоступны при выборе комнаты');
     }
   };
 
@@ -410,6 +563,12 @@ function App() {
       logout();
     };
 
+    // Обработчик ошибок комнаты
+    const handleRoomError = (errorMsg: string) => {
+      console.error('Ошибка комнаты:', errorMsg);
+      setError(errorMsg);
+    };
+
     // Регистрируем обработчики событий
     socket.on('game:state', handleGameState);
     socket.on('user:joined', (user: { id: string; name: string }) =>
@@ -418,6 +577,7 @@ function App() {
     socket.on('connect_error', handleConnectError);
     socket.on('disconnect', handleDisconnect);
     socket.on('force:logout', handleForceLogout);
+    socket.on('room:error', handleRoomError);
     socket.on('emojis:fall', handleEmojisfall);
     socket.on('emojis:reset', () => socket.emit('emojis:fall'));
     socket.on('emoji:thrown', handleSocketEmojiThrown);
@@ -434,6 +594,7 @@ function App() {
       socket.off('connect_error', handleConnectError);
       socket.off('disconnect', handleDisconnect);
       socket.off('force:logout', handleForceLogout);
+      socket.off('room:error', handleRoomError);
       socket.off('emojis:fall', handleEmojisfall);
       socket.off('emojis:reset');
       socket.off('emoji:thrown', handleSocketEmojiThrown);
@@ -455,9 +616,9 @@ function App() {
       setError(null); // Сбрасываем ошибку при успешном подключении
 
       // Если соединение установлено и пользователь не присоединился к игре
-      if (isAuthenticated && user && !isJoined) {
-        console.log('Автоматическое подключение с именем:', user.name);
-        socket.emit('user:join', user.name);
+      if (isAuthenticated && user && !isJoined && selectedRoom) {
+        console.log('Автоматическое подключение к комнате:', selectedRoom.id, 'с именем:', user.name);
+        socket.emit('room:join', selectedRoom.code, user.name);
         setIsJoined(true);
       }
     }
@@ -468,7 +629,7 @@ function App() {
         'Не удалось подключиться к серверу. Пожалуйста, перезагрузите страницу или попробуйте позже.'
       );
     }
-  }, [socket, isAuthenticated, user, connectionFailed, isJoined]);
+  }, [socket, isAuthenticated, user, connectionFailed, isJoined, selectedRoom]);
 
   // Сбрасываем ошибку при изменении состояния сокета
   useEffect(() => {
@@ -477,13 +638,6 @@ function App() {
       setError(null);
     }
   }, [socket]);
-
-  // При успешной авторизации загружаем список комнат
-  useEffect(() => {
-    if (isAuthenticated) {
-      loadRooms();
-    }
-  }, [isAuthenticated, loadRooms]);
 
   const handleLogin = async (login: string, password: string) => {
     try {
@@ -643,7 +797,17 @@ function App() {
           onSelectRoom={handleSelectRoom}
           onCreateRoom={handleCreateRoom}
         />
-        <LandingPage rooms={rooms} onSelectRoom={handleSelectRoom} />
+        <div className="flex-1 overflow-y-auto">
+          <LandingPage
+            rooms={rooms}
+            onSelectRoom={handleSelectRoom}
+            onCreateRoom={() => {
+              console.log('Открываем модальное окно создания комнаты');
+              setShowCreateRoomModal(true);
+            }}
+            isLoading={isRoomsLoading}
+          />
+        </div>
       </div>
     );
   }
@@ -664,6 +828,20 @@ function App() {
         onSelectRoom={handleSelectRoom}
         onCreateRoom={handleCreateRoom}
       />
+      
+      {/* Модальное окно создания комнаты */}
+      {showCreateRoomModal && (
+        <CreateRoomModal
+          onClose={() => setShowCreateRoomModal(false)}
+          onCreateRoom={async (name, description, settings, code, emoji) => {
+            const result = await handleCreateRoom(name, description, settings, code, emoji);
+            if (result) {
+              setShowCreateRoomModal(false);
+            }
+            return result;
+          }}
+        />
+      )}
 
       {isConnecting ? (
         <div className="flex-1 flex items-center justify-center">
@@ -719,6 +897,9 @@ function App() {
           onThrowEmoji={handleThrowEmoji}
           sequence={FIBONACCI_SEQUENCE}
           selectedEmoji={selectedEmoji}
+          onEmojiChange={handleEmojiChange}
+          selectedRoom={selectedRoom}
+          currentUser={socket?.id || ''}
         />
       )}
     </div>

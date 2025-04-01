@@ -3,11 +3,22 @@ import { useOnClickOutside } from '../../hooks/useOnClickOutside';
 import { Room } from '../../types';
 import { CreateRoomModal } from './CreateRoomModal';
 
+// Вспомогательная функция для получения ID комнаты
+const getRoomId = (room: Room): string | undefined => {
+  if (room.id && typeof room.id === 'string') {
+    return room.id;
+  }
+  if (room._id && typeof room._id === 'string') {
+    return room._id;
+  }
+  return undefined;
+};
+
 interface RoomSelectorProps {
   rooms: Room[];
   selectedRoom: Room | null;
   onSelectRoom: (roomId: string) => void;
-  onCreateRoom: (name: string, emoji: string) => Promise<Room | null>;
+  onCreateRoom: (name: string, description?: string, settings?: object, code?: string, emoji?: string) => Promise<Room | null>;
 }
 
 export const RoomSelector = ({ rooms, selectedRoom, onSelectRoom, onCreateRoom }: RoomSelectorProps) => {
@@ -20,6 +31,14 @@ export const RoomSelector = ({ rooms, selectedRoom, onSelectRoom, onCreateRoom }
   });
 
   const handleRoomSelect = (roomId: string) => {
+    console.log('[RoomSelector] Выбрана комната с ID:', roomId);
+    
+    // Проверка, что roomId - это валидная строка
+    if (!roomId || typeof roomId !== 'string' || roomId === 'undefined' || roomId === 'null') {
+      console.error('[RoomSelector] Передан невалидный ID комнаты:', roomId);
+      return;
+    }
+    
     onSelectRoom(roomId);
     setIsOpen(false);
   };
@@ -29,11 +48,19 @@ export const RoomSelector = ({ rooms, selectedRoom, onSelectRoom, onCreateRoom }
     setIsOpen(false);
   };
 
-  const handleCreateRoom = async (name: string, emoji: string) => {
-    const newRoom = await onCreateRoom(name, emoji);
+  const handleCreateRoom = async (name: string, description?: string, settings?: object, code?: string, emoji?: string) => {
+    console.log('[RoomSelector] Создание комнаты с параметрами:', { name, description, code, emoji });
+    const newRoom = await onCreateRoom(name, description, settings, code, emoji);
+    console.log('[RoomSelector] Результат создания комнаты:', newRoom);
     if (newRoom) {
-      onSelectRoom(newRoom.id);
-      setShowCreateModal(false);
+      const roomId = getRoomId(newRoom);
+      if (roomId) {
+        console.log('[RoomSelector] Переход в созданную комнату:', roomId);
+        onSelectRoom(roomId);
+        setShowCreateModal(false);
+      } else {
+        console.error('[RoomSelector] Не удалось получить ID созданной комнаты:', newRoom);
+      }
     }
   };
 
@@ -47,7 +74,7 @@ export const RoomSelector = ({ rooms, selectedRoom, onSelectRoom, onCreateRoom }
           <div className="mr-2 flex items-center">
             {selectedRoom ? (
               <>
-                <span className="mr-2 text-lg">{selectedRoom.emoji}</span>
+                <span className="mr-2 text-lg">{selectedRoom.emoji || selectedRoom.code.substring(0, 2)}</span>
                 <span className="font-medium">{selectedRoom.name}</span>
               </>
             ) : (
@@ -73,18 +100,23 @@ export const RoomSelector = ({ rooms, selectedRoom, onSelectRoom, onCreateRoom }
           <div className="absolute z-50 mt-2 w-full min-w-[200px] bg-gray-700 rounded-md shadow-lg animate-fadeIn">
             <div className="py-1 max-h-60 overflow-y-auto">
               {rooms.length > 0 ? (
-                rooms.map((room) => (
-                  <button
-                    key={room.id}
-                    className={`w-full text-left px-4 py-2 text-white hover:bg-gray-600 transition flex items-center ${
-                      selectedRoom?.id === room.id ? 'bg-gray-600' : ''
-                    }`}
-                    onClick={() => handleRoomSelect(room.id)}
-                  >
-                    <span className="mr-2 text-lg">{room.emoji}</span>
-                    <span>{room.name}</span>
-                  </button>
-                ))
+                rooms.map((room) => {
+                  const roomId = getRoomId(room);
+                  const selectedRoomId = selectedRoom ? getRoomId(selectedRoom) : null;
+                  
+                  return (
+                    <button
+                      key={roomId || `room-${Math.random()}`}
+                      className={`w-full text-left px-4 py-2 text-white hover:bg-gray-600 transition flex items-center ${
+                        selectedRoomId === roomId ? 'bg-gray-600' : ''
+                      }`}
+                      onClick={() => roomId && handleRoomSelect(roomId)}
+                    >
+                      <span className="mr-2 text-lg">{room.emoji || room.code.substring(0, 2)}</span>
+                      <span>{room.name}</span>
+                    </button>
+                  );
+                })
               ) : (
                 <div className="px-4 py-2 text-gray-400 italic">Нет доступных комнат</div>
               )}
@@ -117,7 +149,21 @@ export const RoomSelector = ({ rooms, selectedRoom, onSelectRoom, onCreateRoom }
       {showCreateModal && (
         <CreateRoomModal
           onClose={() => setShowCreateModal(false)}
-          onCreateRoom={handleCreateRoom}
+          onCreateRoom={async (name, description, settings, code, emoji) => {
+            return onCreateRoom(name, description, settings, code, emoji).then(newRoom => {
+              if (newRoom) {
+                const roomId = getRoomId(newRoom);
+                if (roomId) {
+                  console.log('[RoomSelector] Переход в созданную комнату:', roomId);
+                  onSelectRoom(roomId);
+                  setShowCreateModal(false);
+                } else {
+                  console.error('[RoomSelector] Не удалось получить ID созданной комнаты:', newRoom);
+                }
+              }
+              return newRoom;
+            });
+          }}
         />
       )}
     </>

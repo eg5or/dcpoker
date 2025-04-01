@@ -26,11 +26,19 @@ export interface GameState {
 }
 
 export interface Room {
-  id: string;
+  id?: string;
+  _id?: string;
   name: string;
-  emoji: string;
+  code: string;
+  emoji?: string;
+  description?: string;
   createdAt: string;
-  lastActivityAt: string;
+  lastActivity: string;
+  settings?: {
+    votingSequence: number[];
+    allowObservers: boolean;
+    autoReveal: boolean;
+  };
 }
 
 export const FIBONACCI_SEQUENCE = [0.1, 0.5, 1, 2, 3, 5, 8, 13, 20, 40, 100];
@@ -49,27 +57,33 @@ export interface ServerEvents {
   'user:voted': (userId: string) => void;
   'votes:revealed': (state: GameState) => void;
   'force:logout': () => void;
+  'room:error': (errorMessage: string) => void;
   'emoji:thrown': (
     targetUserId: string,
     fromUserId: string,
     emoji: string,
-    trajectory: EmojiTrajectory
+    trajectory: EmojiTrajectory,
+    throwTime: number,
+    placement: { x: number; y: number; rotation: number }
   ) => void;
-  'emojis:fall': () => void;
+  'emojis:fall': (fallTime: number) => void;
   'emojis:shake': (userId: string) => void;
 }
 
 export interface ClientEvents {
-  'user:join': (name: string, roomId: string) => void;
+  'room:join': (roomCode: string, name: string) => void;
   'user:vote': (value: number) => void;
   'votes:reveal': () => void;
   'game:reset': () => void;
   'recalculate:average': () => void;
   'users:reset': () => void;
-  'throw:emoji': (targetUserId: string, emoji: string) => void;
+  'throw:emoji': (
+    targetUserId: string, 
+    emoji: string, 
+    placement: { x: number; y: number; rotation: number }
+  ) => void;
   'emojis:fall': () => void;
   'emojis:shake': (userId: string) => void;
-  'room:join': (roomId: string) => void;
 }
 
 export const AVAILABLE_EMOJIS = [

@@ -14,8 +14,25 @@ export async function throwEmoji(
   currentSession: VotingSessionDocument | null  
 ) {
   console.log('Received throw:emoji event:', { targetUserId, emoji, placement });
+  
+  // Убедимся, что socket.roomCode определен
+  if (!socket.roomCode) {
+    console.error('Error: socket.roomCode is undefined');
+    return;
+  }
+  
   const targetUser = gameState.users.find((u) => u.id === targetUserId);
   const fromUser = gameState.users.find((u) => u.id === socket.id);
+
+  // Проверяем, что оба пользователя находятся в одной комнате
+  const targetSocket = Array.from(io.sockets.sockets.values()).find(
+    (s) => (s as any).id === targetUserId
+  ) as AuthenticatedSocket | undefined;
+  
+  if (!targetSocket || targetSocket.roomCode !== socket.roomCode) {
+    console.error('Target is not in the same room or not found');
+    return;
+  }
 
   if (targetUser && fromUser && targetUser.id !== fromUser.id) {
     console.log('Users found:', { targetUser: targetUser.name, fromUser: fromUser.name });
@@ -67,9 +84,11 @@ export async function throwEmoji(
       trajectory,
       placement,
       throwTime,
+      roomCode: socket.roomCode
     });
 
-    io.emit(
+    // Отправляем событие только в комнату, а не всем пользователям
+    io.to(socket.roomCode).emit(
       'emoji:thrown',
       targetUser.id,
       fromUser.id,
@@ -117,7 +136,8 @@ export async function throwEmoji(
       }
     }
 
-    io.emit('game:state', gameState);
+    // Отправляем обновленное состояние только в комнату
+    io.to(socket.roomCode).emit('game:state', gameState);
   } else {
     console.log('Users not found or same user:', {
       targetFound: !!targetUser,

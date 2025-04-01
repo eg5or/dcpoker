@@ -6,8 +6,8 @@ import { Room } from '../models/room.model.js';
 export const getAllRooms = async (req: Request, res: Response) => {
   try {
     const rooms = await Room.find({ isActive: true })
-      .sort({ lastActivityAt: -1 })
-      .select('name emoji createdAt lastActivityAt');
+      .sort({ lastActivity: -1 })
+      .select('name code description createdAt lastActivity');
 
     return res.status(200).json({ rooms });
   } catch (error) {
@@ -19,35 +19,38 @@ export const getAllRooms = async (req: Request, res: Response) => {
 // Создать новую комнату
 export const createRoom = async (req: Request, res: Response) => {
   try {
-    const { name, emoji } = req.body;
+    const { name, description, settings } = req.body;
 
-    if (!name || !emoji) {
-      return res.status(400).json({ message: 'Имя и эмодзи комнаты обязательны' });
+    if (!name) {
+      return res.status(400).json({ message: 'Имя комнаты обязательно' });
     }
 
-    // @ts-ignore - userId добавляется в middleware авторизации
-    const userId = req.userId;
-    
-    if (!userId) {
+    // Проверяем наличие авторизации и получаем id пользователя
+    if (!req.user || !req.user.id) {
       return res.status(401).json({ message: 'Необходима авторизация' });
     }
+    
+    const userId = req.user.id;
 
     const newRoom = await Room.create({
       name,
-      emoji,
+      description,
       createdBy: new mongoose.Types.ObjectId(userId),
       createdAt: new Date(),
-      lastActivityAt: new Date(),
+      lastActivity: new Date(),
       isActive: true,
+      settings
     });
 
     return res.status(201).json({ 
       room: {
         id: newRoom._id,
         name: newRoom.name,
-        emoji: newRoom.emoji,
+        code: newRoom.code,
+        description: newRoom.description,
         createdAt: newRoom.createdAt,
-        lastActivityAt: newRoom.lastActivityAt,
+        lastActivity: newRoom.lastActivity,
+        settings: newRoom.settings
       }
     });
   } catch (error) {
@@ -78,9 +81,11 @@ export const getRoomById = async (req: Request, res: Response) => {
       room: {
         id: room._id,
         name: room.name,
-        emoji: room.emoji,
+        code: room.code,
+        description: room.description,
         createdAt: room.createdAt,
-        lastActivityAt: room.lastActivityAt,
+        lastActivity: room.lastActivity,
+        settings: room.settings
       }
     });
   } catch (error) {
@@ -98,7 +103,7 @@ export const updateRoomActivity = async (roomId: string) => {
     
     await Room.updateOne(
       { _id: new mongoose.Types.ObjectId(roomId) },
-      { $set: { lastActivityAt: new Date() } }
+      { $set: { lastActivity: new Date() } }
     );
     
     return true;

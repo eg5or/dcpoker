@@ -16,7 +16,7 @@ interface HeaderProps {
   rooms: Room[];
   selectedRoom: Room | null;
   onSelectRoom: (roomId: string) => void;
-  onCreateRoom: (name: string, emoji: string) => Promise<Room | null>;
+  onCreateRoom: (name: string, description?: string, settings?: object, code?: string, emoji?: string) => Promise<Room | null>;
 }
 
 export const Header = ({
