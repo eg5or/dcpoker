@@ -34,6 +34,8 @@ export interface Room {
   description?: string;
   createdAt: string;
   lastActivity: string;
+  onlineUsersCount?: number;
+  onlineUsers?: string[];
   createdBy?: {
     id: string;
     name: string;
@@ -72,6 +74,14 @@ export interface ServerEvents {
   ) => void;
   'emojis:fall': (fallTime: number) => void;
   'emojis:shake': (userId: string) => void;
+  'rooms:usersCount': (roomsUsersCount: { 
+    [roomCode: string]: { 
+      id: string, 
+      code: string, 
+      onlineUsersCount: number,
+      onlineUsers: string[]
+    } 
+  }) => void;
 }
 
 export interface ClientEvents {

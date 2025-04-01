@@ -4,6 +4,9 @@ import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.middl
 import { RoomInterface } from '../models/room.model.js';
 import { RoomService } from '../services/room.service.js';
 
+// Импортируем roomSessions из index.ts для доступа к информации о пользователях
+import { roomSessions } from '../index.js';
+
 const router = express.Router();
 
 /**
@@ -43,9 +46,30 @@ router.get('/', authMiddleware, async (req, res) => {
       return res.status(401).json({ message: 'Необходима авторизация' });
     }
     
-    // Получаем все активные комнаты вместо только созданных пользователем
+    // Получаем все активные комнаты
     const rooms = await RoomService.getAllActiveRooms();
-    res.status(200).json({ rooms });
+    
+    // Добавляем информацию о количестве и именах пользователей онлайн
+    const roomsWithOnlineData = rooms.map(room => {
+      const roomCode = room.code;
+      let onlineUsersCount = 0;
+      let onlineUsers: string[] = [];
+      
+      if (roomSessions[roomCode]) {
+        const onlineUsersData = roomSessions[roomCode].gameState.users.filter(user => user.isOnline);
+        onlineUsersCount = onlineUsersData.length;
+        onlineUsers = onlineUsersData.map(user => user.name);
+      }
+      
+      // Возвращаем объект комнаты с добавленными полями
+      return {
+        ...room.toObject(), // Преобразуем Mongoose документ в простой объект
+        onlineUsersCount,
+        onlineUsers
+      };
+    });
+    
+    res.status(200).json({ rooms: roomsWithOnlineData });
   } catch (error) {
     console.error('Ошибка при получении списка комнат:', error);
     res.status(500).json({ message: 'Ошибка сервера при получении комнат' });

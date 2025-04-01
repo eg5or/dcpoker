@@ -207,7 +207,7 @@ type RoomSessions = {
 };
 
 // Карта состояний игры по комнатам
-const roomSessions: RoomSessions = {};
+export const roomSessions: RoomSessions = {};
 
 // Функция для безопасной работы с сессией
 export function useSession<T>(session: VotingSessionDocument | null, callback: (session: VotingSessionDocument) => T): T | null {
@@ -335,6 +335,9 @@ io.on('connection', (socket: AuthenticatedSocket) => {
     // Отправляем обновленное состояние всем в комнате
     console.log(`Emitting updated game state to room ${roomCode}`);
     io.to(roomCode).emit('game:state', gameState);
+    
+    // Отправляем обновленные данные о количестве пользователей
+    await broadcastRoomsUsersCount();
   });
 
   socket.on('user:vote', (value: number) => {
@@ -449,6 +452,9 @@ io.on('connection', (socket: AuthenticatedSocket) => {
     socket.roomCode = undefined; // Очищаем roomCode
     
     console.log(`User ${socket.id} has left the room`);
+    
+    // Отправляем обновленные данные о количестве пользователей
+    broadcastRoomsUsersCount();
   });
 
   socket.on('emojis:shake', async (userId: string) => {
@@ -603,8 +609,44 @@ io.on('connection', (socket: AuthenticatedSocket) => {
         io.to(socket.roomCode).emit('game:state', gameState);
       }
     }
+    
+    // Отправляем обновленные данные о количестве пользователей
+    broadcastRoomsUsersCount();
   });
 });
+
+// Добавить функцию для рассылки обновленной информации о количестве пользователей в комнатах
+const broadcastRoomsUsersCount = async () => {
+  try {
+    const rooms = await RoomService.getAllActiveRooms();
+    
+    const roomsUsersCount = rooms.reduce((acc, room) => {
+      const roomCode = room.code;
+      let onlineUsersCount = 0;
+      let onlineUsers: string[] = [];
+      
+      if (roomSessions[roomCode]) {
+        const onlineUsersData = roomSessions[roomCode].gameState.users.filter((user: GameStateUser) => user.isOnline);
+        onlineUsersCount = onlineUsersData.length;
+        onlineUsers = onlineUsersData.map((user: GameStateUser) => user.name);
+      }
+      
+      return {
+        ...acc,
+        [roomCode]: {
+          id: room._id ? room._id.toString() : '',
+          code: roomCode,
+          onlineUsersCount,
+          onlineUsers
+        }
+      };
+    }, {} as Record<string, { id: string, code: string, onlineUsersCount: number, onlineUsers: string[] }>);
+    
+    io.emit('rooms:usersCount', roomsUsersCount);
+  } catch (error) {
+    console.error('Ошибка при отправке обновления количества пользователей:', error);
+  }
+};
 
 const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {

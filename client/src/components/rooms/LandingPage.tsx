@@ -167,6 +167,21 @@ export const LandingPage = ({ rooms, onSelectRoom, onCreateRoom, isLoading }: La
                           <p className="text-gray-500 text-sm">
                             Последняя активность: {new Date(room.lastActivity).toLocaleString()}
                           </p>
+                          {room.onlineUsersCount && room.onlineUsersCount > 0 ? (
+                            <p className="text-green-500 text-sm flex items-center">
+                              <span className="inline-block h-2 w-2 rounded-full bg-green-500 mr-2"></span>
+                              {room.onlineUsersCount} пользователей онлайн 
+                              {room.onlineUsers && room.onlineUsers.length > 0 && (
+                                <span className="text-gray-300 ml-1 text-xs font-mono truncate max-w-[100px]" title={room.onlineUsers.join(', ')}>
+                                  ({room.onlineUsers.join(', ')})
+                                </span>
+                              )}
+                            </p>
+                          ) : (
+                            <p className="text-gray-400 text-sm italic">
+                              Комната пуста
+                            </p>
+                          )}
                         </div>
                       </button>
                     </div>

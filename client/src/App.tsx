@@ -640,6 +640,45 @@ function App() {
     }
   }, [socket]);
 
+  // Добавить обработчик события rooms:usersCount
+  useEffect(() => {
+    if (!socket) return;
+
+    // Обработчик обновления количества пользователей в комнатах
+    const handleRoomsUsersCount = (roomsUsersCount: { 
+      [roomCode: string]: { 
+        id: string, 
+        code: string, 
+        onlineUsersCount: number,
+        onlineUsers: string[] // Добавили поле
+      } 
+    }) => {
+      setRooms(prevRooms => {
+        if (!prevRooms) return prevRooms;
+        
+        return prevRooms.map(room => {
+          const roomInfo = roomsUsersCount[room.code];
+          if (roomInfo) {
+            return {
+              ...room,
+              onlineUsersCount: roomInfo.onlineUsersCount,
+              onlineUsers: roomInfo.onlineUsers // Сохраняем список имен
+            };
+          }
+          return room;
+        });
+      });
+    };
+
+    // Регистрируем обработчик события
+    socket.on('rooms:usersCount', handleRoomsUsersCount);
+
+    // Отписываемся при размонтировании
+    return () => {
+      socket.off('rooms:usersCount', handleRoomsUsersCount);
+    };
+  }, [socket]);
+
   const handleLogin = async (login: string, password: string) => {
     try {
       setError(null);
