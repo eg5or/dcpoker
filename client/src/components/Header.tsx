@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { Room } from '../types';
 import { EmojiSelector } from './EmojiSelector';
+import { RoomSelector } from './rooms/RoomSelector';
 import { Tooltip } from './Tooltip';
 
 interface HeaderProps {
@@ -11,6 +13,10 @@ interface HeaderProps {
   onResetUsers: () => void;
   selectedEmoji: string;
   onSelectEmoji: (emoji: string) => void;
+  rooms: Room[];
+  selectedRoom: Room | null;
+  onSelectRoom: (roomId: string) => void;
+  onCreateRoom: (name: string, emoji: string) => Promise<Room | null>;
 }
 
 export const Header = ({
@@ -22,6 +28,10 @@ export const Header = ({
   onResetUsers,
   selectedEmoji,
   onSelectEmoji,
+  rooms,
+  selectedRoom,
+  onSelectRoom,
+  onCreateRoom,
 }: HeaderProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -43,6 +53,14 @@ export const Header = ({
           </span>
         </div>
 
+        {/* Селектор комнаты */}
+        <RoomSelector
+          rooms={rooms}
+          selectedRoom={selectedRoom}
+          onSelectRoom={onSelectRoom}
+          onCreateRoom={onCreateRoom}
+        />
+
         {/* Кнопки управления игрой */}
         <div className="hidden sm:flex items-center space-x-2 mr-auto">
           <Tooltip content="Показать карты" position="bottom">
@@ -50,6 +68,7 @@ export const Header = ({
               onClick={onReveal}
               className={`${buttonClasses} bg-green-500 hover:bg-green-600 w-10`}
               aria-label="Показать карты"
+              disabled={!selectedRoom}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -72,6 +91,7 @@ export const Header = ({
               onClick={onReset}
               className={`${buttonClasses} bg-red-500 hover:bg-red-600 w-10`}
               aria-label="Начать новое голосование"
+              disabled={!selectedRoom}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -93,6 +113,7 @@ export const Header = ({
               onClick={onResetUsers}
               className={`${buttonClasses} bg-red-700 hover:bg-red-800 w-10`}
               aria-label="Сбросить всех пользователей"
+              disabled={!selectedRoom}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -197,6 +218,7 @@ export const Header = ({
             onClick={onReveal}
             className={`${buttonClasses} bg-green-500 hover:bg-green-600 w-10`}
             aria-label="Показать карты"
+            disabled={!selectedRoom}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -219,6 +241,7 @@ export const Header = ({
             onClick={onReset}
             className={`${buttonClasses} bg-red-500 hover:bg-red-600 w-10`}
             aria-label="Начать новое голосование"
+            disabled={!selectedRoom}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -240,6 +263,7 @@ export const Header = ({
             onClick={onResetUsers}
             className={`${buttonClasses} bg-red-700 hover:bg-red-800 w-10`}
             aria-label="Сбросить всех пользователей"
+            disabled={!selectedRoom}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -252,29 +276,16 @@ export const Header = ({
           </button>
         </Tooltip>
 
-        <Tooltip content="Профиль" position="bottom">
-          <button
-            onClick={onProfileClick}
-            className={`${buttonClasses} bg-gray-700 hover:bg-gray-600 w-10`}
-            aria-label="Профиль"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              viewBox="0 0 20 20"
-              fill="currentColor"
+        {/* Мобильный выбор эмодзи */}
+        <div className="relative">
+          <Tooltip content="Выбрать эмодзи" position="bottom">
+            <button
+              className={`${buttonClasses} bg-gray-700 hover:bg-gray-600 w-10`}
+              aria-label="Выбрать эмодзи"
             >
-              <path
-                fillRule="evenodd"
-                d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
-        </Tooltip>
-
-        <div className="flex items-center h-10">
-          <EmojiSelector selectedEmoji={selectedEmoji} onSelectEmoji={onSelectEmoji} />
+              <div className="text-xl">{selectedEmoji}</div>
+            </button>
+          </Tooltip>
         </div>
       </div>
     </header>

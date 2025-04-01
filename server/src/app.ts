@@ -2,6 +2,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
 import mongoose from 'mongoose';
+import authRoutes from './routes/auth.routes.js';
+import roomRoutes from './routes/room.routes.js';
 import sessionRoutes from './routes/session.routes.js';
 import settingsRoutes from './routes/settings.routes.js';
 import statsRoutes from './routes/stats.routes.js';
@@ -17,9 +19,11 @@ app.use(cors());
 app.use(express.json());
 
 // Настраиваем маршруты
+app.use('/api/auth', authRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/sessions', sessionRoutes);
+app.use('/api/rooms', roomRoutes);
 
 // Подключаемся к MongoDB
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/dcpoker';

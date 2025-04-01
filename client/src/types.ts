@@ -25,6 +25,14 @@ export interface GameState {
   consistency: Consistency | null;
 }
 
+export interface Room {
+  id: string;
+  name: string;
+  emoji: string;
+  createdAt: string;
+  lastActivityAt: string;
+}
+
 export const FIBONACCI_SEQUENCE = [0.1, 0.5, 1, 2, 3, 5, 8, 13, 20, 40, 100];
 
 export interface EmojiTrajectory {
@@ -52,7 +60,7 @@ export interface ServerEvents {
 }
 
 export interface ClientEvents {
-  'user:join': (name: string) => void;
+  'user:join': (name: string, roomId: string) => void;
   'user:vote': (value: number) => void;
   'votes:reveal': () => void;
   'game:reset': () => void;
@@ -61,6 +69,7 @@ export interface ClientEvents {
   'throw:emoji': (targetUserId: string, emoji: string) => void;
   'emojis:fall': () => void;
   'emojis:shake': (userId: string) => void;
+  'room:join': (roomId: string) => void;
 }
 
 export const AVAILABLE_EMOJIS = [

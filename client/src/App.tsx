@@ -3,10 +3,12 @@ import { AuthPage } from './components/auth/AuthPage';
 import { GameBoard } from './components/GameBoard';
 import { Header } from './components/Header';
 import { ProfilePage } from './components/profile/ProfilePage';
+import { LandingPage } from './components/rooms/LandingPage';
 import { animateEmojisFalling } from './components/UserCardEffects';
 import useSocket from './hooks/useSocket';
 import { authService } from './services/auth.service';
-import type { GameState } from './types';
+import { roomService } from './services/room.service';
+import type { GameState, Room } from './types';
 import { AVAILABLE_EMOJIS, FIBONACCI_SEQUENCE } from './types';
 
 // Константа для ключа в localStorage
@@ -41,6 +43,9 @@ type EmojiThrowData = {
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(authService.isAuthenticated());
   const [user, setUser] = useState(authService.getUser());
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [isRoomsLoading, setIsRoomsLoading] = useState(false);
   const { socket, connectionFailed } = useSocket(isAuthenticated ? authService.getToken() : null);
   const [isJoined, setIsJoined] = useState(false);
   const [isConnecting, setIsConnecting] = useState(isAuthenticated);
@@ -74,6 +79,63 @@ function App() {
   };
 
   const [selectedEmoji, setSelectedEmoji] = useState<string>(getSavedEmoji());
+
+  // Загрузка комнат
+  const loadRooms = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
+    setIsRoomsLoading(true);
+    try {
+      const fetchedRooms = await roomService.getAllRooms();
+      setRooms(fetchedRooms);
+      
+      // Проверяем, есть ли сохраненная комната
+      const lastRoomId = roomService.getLastRoom();
+      if (lastRoomId) {
+        const room = fetchedRooms.find(r => r.id === lastRoomId);
+        if (room) {
+          setSelectedRoom(room);
+        }
+      }
+    } catch (error) {
+      console.error('Ошибка при загрузке комнат:', error);
+    } finally {
+      setIsRoomsLoading(false);
+    }
+  }, [isAuthenticated]);
+
+  // Обработчик создания комнаты
+  const handleCreateRoom = async (name: string, emoji: string): Promise<Room | null> => {
+    try {
+      const newRoom = await roomService.createRoom(name, emoji);
+      if (newRoom) {
+        setRooms(prevRooms => [...prevRooms, newRoom]);
+        return newRoom;
+      }
+      return null;
+    } catch (error) {
+      console.error('Ошибка при создании комнаты:', error);
+      return null;
+    }
+  };
+
+  // Обработчик выбора комнаты
+  const handleSelectRoom = (roomId: string) => {
+    const room = rooms.find(r => r.id === roomId);
+    if (!room) return;
+    
+    setSelectedRoom(room);
+    roomService.saveLastRoom(roomId);
+    
+    if (isJoined) {
+      // Если уже подключены к сокету, присоединяемся к новой комнате
+      socket?.emit('room:join', roomId);
+    } else if (socket) {
+      // Подключаемся к комнате при первом выборе
+      socket.emit('user:join', user?.name || '', roomId);
+      setIsJoined(true);
+    }
+  };
 
   // Обработчик изменения эмодзи с сохранением в localStorage
   const handleEmojiChange = (emoji: string) => {
@@ -416,6 +478,13 @@ function App() {
     }
   }, [socket]);
 
+  // При успешной авторизации загружаем список комнат
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadRooms();
+    }
+  }, [isAuthenticated, loadRooms]);
+
   const handleLogin = async (login: string, password: string) => {
     try {
       setError(null);
@@ -549,33 +618,19 @@ function App() {
   }
 
   if (!isAuthenticated) {
-    return <AuthPage onLogin={handleLogin} onRegister={handleRegister} error={error} />;
+    return <AuthPage onLogin={handleLogin} onRegister={handleRegister} error={null} />;
   }
 
-  // Показываем страницу профиля, если она активна
-  if (showProfile && user) {
-    return <ProfilePage userName={user.name} userId={user.id} onBack={handleBackFromProfile} />;
+  if (showProfile) {
+    return <ProfilePage userName={user?.name || ''} userId={user?.id || ''} onBack={handleBackFromProfile} />;
   }
 
-  if (!isJoined) {
-    // Автоматически присоединяемся к игре с именем из профиля
-    if (user && socket) {
-      socket.emit('user:join', user.name);
-      setIsJoined(true);
-    }
-
+  // Если еще не выбрана комната, показываем LandingPage
+  if (!selectedRoom) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-white text-xl">Присоединение к игре...</div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col min-h-screen bg-gray-900">
-      {user && (
+      <div className="min-h-screen flex flex-col bg-gray-900 text-white">
         <Header
-          userName={user.name}
+          userName={user?.name || ''}
           onLogout={logout}
           onProfileClick={handleProfileClick}
           onReveal={handleReveal}
@@ -583,15 +638,80 @@ function App() {
           onResetUsers={() => socket?.emit('users:reset')}
           selectedEmoji={selectedEmoji}
           onSelectEmoji={handleEmojiChange}
+          rooms={rooms}
+          selectedRoom={selectedRoom}
+          onSelectRoom={handleSelectRoom}
+          onCreateRoom={handleCreateRoom}
         />
-      )}
-      <div className="flex-grow">
+        <LandingPage rooms={rooms} onSelectRoom={handleSelectRoom} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col bg-gray-900 text-white">
+      <Header
+        userName={user?.name || ''}
+        onLogout={logout}
+        onProfileClick={handleProfileClick}
+        onReveal={handleReveal}
+        onReset={handleReset}
+        onResetUsers={() => socket?.emit('users:reset')}
+        selectedEmoji={selectedEmoji}
+        onSelectEmoji={handleEmojiChange}
+        rooms={rooms}
+        selectedRoom={selectedRoom}
+        onSelectRoom={handleSelectRoom}
+        onCreateRoom={handleCreateRoom}
+      />
+
+      {isConnecting ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <svg
+              className="animate-spin h-12 w-12 text-blue-500 mx-auto mb-4"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              ></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
+            </svg>
+            <p className="text-xl">Подключение к серверу...</p>
+          </div>
+        </div>
+      ) : error ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center mx-auto max-w-md p-6 bg-red-900 bg-opacity-25 border border-red-700 rounded-lg">
+            <div className="text-red-500 text-5xl mb-4">⚠️</div>
+            <h2 className="text-xl font-bold mb-4">Ошибка</h2>
+            <p className="mb-4">{error}</p>
+            <button
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+              onClick={() => window.location.reload()}
+            >
+              Перезагрузить страницу
+            </button>
+          </div>
+        </div>
+      ) : (
         <GameBoard
           socket={socket}
-          currentVote={currentVote}
           gameState={gameState}
           error={error}
           onVote={handleVote}
+          currentVote={currentVote}
           onReveal={handleReveal}
           onReset={handleReset}
           onResetUsers={() => socket?.emit('users:reset')}
@@ -600,7 +720,7 @@ function App() {
           sequence={FIBONACCI_SEQUENCE}
           selectedEmoji={selectedEmoji}
         />
-      </div>
+      )}
     </div>
   );
 }
