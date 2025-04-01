@@ -26,6 +26,7 @@ interface GameBoardProps {
   selectedEmoji: string;
   onEmojiChange?: (emoji: string) => void;
   selectedRoom?: Room | null;
+  onLeaveRoom?: () => void;
 }
 
 export function GameBoard({
@@ -44,7 +45,8 @@ export function GameBoard({
   sequence = [],
   selectedEmoji,
   onEmojiChange,
-  selectedRoom
+  selectedRoom,
+  onLeaveRoom
 }: GameBoardProps) {
   const [_, setPrevGameState] = useState<GameState>(gameState);
   const [confirmRevealDialogOpen, setConfirmRevealDialogOpen] = useState(false);
@@ -108,11 +110,20 @@ export function GameBoard({
       <div className="max-w-6xl mx-auto">
         {selectedRoom && (
           <div className="mb-6 bg-gray-800 p-4 rounded-lg">
-            <h1 className="text-2xl font-bold mb-2">
-              {selectedRoom.code.substring(0, 2)} {selectedRoom.name}
-            </h1>
+            <div className="flex justify-between items-center">
+              <h1 className="text-2xl font-bold">
+                {selectedRoom.code.substring(0, 2)} {selectedRoom.name}
+              </h1>
+              <button 
+                onClick={onLeaveRoom} 
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded transition-colors"
+                title="Выйти из комнаты"
+              >
+                Выйти
+              </button>
+            </div>
             {selectedRoom.description && (
-              <p className="text-gray-400">{selectedRoom.description}</p>
+              <p className="text-gray-400 mt-2">{selectedRoom.description}</p>
             )}
           </div>
         )}

@@ -426,6 +426,31 @@ io.on('connection', (socket: AuthenticatedSocket) => {
     io.to(socket.roomCode).emit('emojis:fall', resetTime);
   });
 
+  // Обработка выхода из комнаты (перемещено на правильный уровень)
+  socket.on('room:leave', () => {
+    if (!socket.roomCode) {
+      socket.emit('room:error', 'Вы не присоединились к комнате');
+      return;
+    }
+
+    console.log(`User ${socket.id} leaving room ${socket.roomCode}`);
+    
+    // Обновляем статус пользователя в комнате
+    const { gameState } = getRoomSession(socket.roomCode);
+    const user = gameState.users.find((u) => u.id === socket.id);
+    if (user) {
+      console.log(`Marking user ${user.name} as offline in room ${socket.roomCode}`);
+      user.isOnline = false;
+      io.to(socket.roomCode).emit('game:state', gameState);
+    }
+
+    // Отсоединяем сокет от комнаты
+    socket.leave(socket.roomCode);
+    socket.roomCode = undefined; // Очищаем roomCode
+    
+    console.log(`User ${socket.id} has left the room`);
+  });
+
   socket.on('emojis:shake', async (userId: string) => {
     if (!socket.roomCode) {
       socket.emit('room:error', 'Вы не присоединились к комнате');

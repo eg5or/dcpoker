@@ -617,7 +617,8 @@ function App() {
 
       // Если соединение установлено и пользователь не присоединился к игре
       if (isAuthenticated && user && !isJoined && selectedRoom) {
-        console.log('Автоматическое подключение к комнате:', selectedRoom.id, 'с именем:', user.name);
+        const roomId = getRoomId(selectedRoom);
+        console.log('Автоматическое подключение к комнате:', roomId, 'с именем:', user.name);
         socket.emit('room:join', selectedRoom.code, user.name);
         setIsJoined(true);
       }
@@ -742,15 +743,30 @@ function App() {
     setShowProfile(false);
   };
 
-  if (isConnecting) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-white text-xl">Подключение к серверу...</div>
-      </div>
-    );
-  }
+  // Обработчик выхода из комнаты
+  const handleLeaveRoom = () => {
+    console.log('[App] Выход из комнаты');
+    
+    // Удаляем сохраненный ID комнаты из localStorage
+    try {
+      localStorage.removeItem('scrum_poker_last_room');
+      console.log('[App] ID комнаты удален из localStorage');
+    } catch (error) {
+      console.error('[App] Ошибка при удалении ID комнаты из localStorage:', error);
+    }
+    
+    // Сбрасываем выбранную комнату
+    setSelectedRoom(null);
+    
+    // Отключаемся от текущей комнаты через Socket.IO
+    if (socket) {
+      socket.emit('room:leave');
+      console.log('[App] Отправлен запрос на выход из комнаты');
+    }
+    
+    setIsJoined(false);
+  };
 
-  // Если подключение не удалось, но пользователь аутентифицирован, показываем сообщение об ошибке и кнопку
   if (connectionFailed && isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center gap-4">
@@ -778,6 +794,28 @@ function App() {
   if (showProfile) {
     return <ProfilePage userName={user?.name || ''} userId={user?.id || ''} onBack={handleBackFromProfile} />;
   }
+
+  if (isConnecting) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-white text-xl">Подключение к серверу...</div>
+      </div>
+    );
+  }
+
+  /* Модальное окно создания комнаты должно быть доступно глобально */
+  const createRoomModal = showCreateRoomModal && (
+    <CreateRoomModal
+      onClose={() => setShowCreateRoomModal(false)}
+      onCreateRoom={async (name, description, settings, code, emoji) => {
+        const result = await handleCreateRoom(name, description, settings, code, emoji);
+        if (result) {
+          setShowCreateRoomModal(false);
+        }
+        return result;
+      }}
+    />
+  );
 
   // Если еще не выбрана комната, показываем LandingPage
   if (!selectedRoom) {
@@ -808,6 +846,7 @@ function App() {
             isLoading={isRoomsLoading}
           />
         </div>
+        {createRoomModal}
       </div>
     );
   }
@@ -829,19 +868,7 @@ function App() {
         onCreateRoom={handleCreateRoom}
       />
       
-      {/* Модальное окно создания комнаты */}
-      {showCreateRoomModal && (
-        <CreateRoomModal
-          onClose={() => setShowCreateRoomModal(false)}
-          onCreateRoom={async (name, description, settings, code, emoji) => {
-            const result = await handleCreateRoom(name, description, settings, code, emoji);
-            if (result) {
-              setShowCreateRoomModal(false);
-            }
-            return result;
-          }}
-        />
-      )}
+      {createRoomModal}
 
       {isConnecting ? (
         <div className="flex-1 flex items-center justify-center">
@@ -900,6 +927,7 @@ function App() {
           onEmojiChange={handleEmojiChange}
           selectedRoom={selectedRoom}
           currentUser={socket?.id || ''}
+          onLeaveRoom={handleLeaveRoom}
         />
       )}
     </div>

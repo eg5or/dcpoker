@@ -34,6 +34,10 @@ export interface Room {
   description?: string;
   createdAt: string;
   lastActivity: string;
+  createdBy?: {
+    id: string;
+    name: string;
+  };
   settings?: {
     votingSequence: number[];
     allowObservers: boolean;

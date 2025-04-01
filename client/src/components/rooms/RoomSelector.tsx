@@ -48,7 +48,7 @@ export const RoomSelector = ({ rooms, selectedRoom, onSelectRoom, onCreateRoom }
     setIsOpen(false);
   };
 
-  const handleCreateRoom = async (name: string, description?: string, settings?: object, code?: string, emoji?: string) => {
+  const handleCreateRoom = async (name: string, description?: string, settings?: object, code?: string, emoji?: string): Promise<Room | null> => {
     console.log('[RoomSelector] Создание комнаты с параметрами:', { name, description, code, emoji });
     const newRoom = await onCreateRoom(name, description, settings, code, emoji);
     console.log('[RoomSelector] Результат создания комнаты:', newRoom);
@@ -62,6 +62,7 @@ export const RoomSelector = ({ rooms, selectedRoom, onSelectRoom, onCreateRoom }
         console.error('[RoomSelector] Не удалось получить ID созданной комнаты:', newRoom);
       }
     }
+    return newRoom;
   };
 
   return (
@@ -149,21 +150,7 @@ export const RoomSelector = ({ rooms, selectedRoom, onSelectRoom, onCreateRoom }
       {showCreateModal && (
         <CreateRoomModal
           onClose={() => setShowCreateModal(false)}
-          onCreateRoom={async (name, description, settings, code, emoji) => {
-            return onCreateRoom(name, description, settings, code, emoji).then(newRoom => {
-              if (newRoom) {
-                const roomId = getRoomId(newRoom);
-                if (roomId) {
-                  console.log('[RoomSelector] Переход в созданную комнату:', roomId);
-                  onSelectRoom(roomId);
-                  setShowCreateModal(false);
-                } else {
-                  console.error('[RoomSelector] Не удалось получить ID созданной комнаты:', newRoom);
-                }
-              }
-              return newRoom;
-            });
-          }}
+          onCreateRoom={handleCreateRoom}
         />
       )}
     </>

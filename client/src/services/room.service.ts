@@ -109,6 +109,35 @@ class RoomService {
     }
   }
 
+  // Обновить комнату
+  async updateRoom(roomId: string, updates: Partial<Room>): Promise<Room | null> {
+    try {
+      console.log('[RoomService] Отправка запроса на обновление комнаты:', roomId, updates);
+      
+      const response = await fetch(`${API_URL}/rooms/${roomId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authService.getToken()}`,
+        },
+        body: JSON.stringify(updates),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        console.error('[RoomService] Ошибка при обновлении комнаты:', data.message || 'Неизвестная ошибка');
+        throw new Error(data.message || 'Ошибка при обновлении комнаты');
+      }
+
+      console.log('[RoomService] Комната успешно обновлена:', data.room);
+      return data.room;
+    } catch (error) {
+      console.error('[RoomService] Ошибка при обновлении комнаты:', error);
+      throw error;
+    }
+  }
+
   // Сохранить ID последней комнаты в localStorage
   saveLastRoom(roomId: string): void {
     try {

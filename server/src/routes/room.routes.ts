@@ -143,4 +143,73 @@ router.delete('/:id', authMiddleware, async (req, res) => {
   }
 });
 
+/**
+ * Обновление информации о комнате
+ * PUT /api/rooms/:id
+ */
+router.put('/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description, emoji, settings } = req.body;
+    const userId = req.user?.id;
+    
+    console.log('[PUT /api/rooms/:id] Запрос на обновление комнаты:', {
+      roomId: id,
+      userId: userId,
+      body: req.body
+    });
+    
+    if (!userId) {
+      return res.status(401).json({ message: 'Необходима авторизация' });
+    }
+
+    // Проверяем, существует ли комната
+    const room = await RoomService.getRoomById(id);
+
+    if (!room) {
+      return res.status(404).json({ message: 'Комната не найдена' });
+    }
+
+    // Логируем ID для отладки
+    console.log('[PUT /api/rooms/:id] Сравнение ID:', {
+      createdById: room.createdBy.toString(),
+      userId: userId
+    });
+
+    // Прямое сравнение ObjectId с userId
+    const createdByIdStr = room.createdBy.toString();
+    const userIdStr = userId.toString();
+    
+    const isCreator = createdByIdStr === userIdStr;
+    
+    console.log('[PUT /api/rooms/:id] Результат проверки создателя:', {
+      createdByIdStr,
+      userIdStr,
+      isCreator
+    });
+
+    if (!isCreator) {
+      return res.status(403).json({ message: 'У вас нет прав на редактирование этой комнаты' });
+    }
+
+    // Обновляем информацию о комнате
+    const updatedRoom = await RoomService.updateRoom(
+      id, 
+      { name, description, emoji, settings }
+    );
+
+    if (!updatedRoom) {
+      return res.status(500).json({ message: 'Не удалось обновить комнату' });
+    }
+
+    // Получаем обновленную комнату с деталями пользователя для отправки клиенту
+    const roomDetails = await RoomService.getRoomDetails(id);
+    
+    res.status(200).json({ room: roomDetails });
+  } catch (error) {
+    console.error('Ошибка при обновлении комнаты:', error);
+    res.status(500).json({ message: 'Ошибка сервера при обновлении комнаты' });
+  }
+});
+
 export default router; 
