@@ -458,6 +458,7 @@ function App() {
       const cleanup = () => {
         activeAnimationsCount.current--;
         console.log(`[Animation] Animation completed. Active count: ${activeAnimationsCount.current}`);
+        cancelAnimationFrame(animationFrameId);
         if (document.body.contains(projectile)) {
           document.body.removeChild(projectile);
         }
