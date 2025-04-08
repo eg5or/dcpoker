@@ -369,11 +369,15 @@ function App() {
       // Проверяем, не было ли оттряхивания после броска
       const targetUser = gameState.users.find((u) => u.id === targetId);
       if (targetUser?.lastShakeTime && targetUser.lastShakeTime > Date.now()) {
-        return; // Пропускаем анимацию, если цель уже оттряхнула эмодзи
+        activeAnimationsCount.current--; // Уменьшаем счетчик если пропускаем анимацию
+        return;
       }
 
       const targetElement = document.querySelector(`[data-user-id="${targetId}"]`);
-      if (!targetElement) return;
+      if (!targetElement) {
+        activeAnimationsCount.current--; // Уменьшаем счетчик если нет цели
+        return;
+      }
 
       const projectile = document.createElement('div');
       projectile.className = 'emoji-projectile';
@@ -477,6 +481,14 @@ function App() {
       const cleanup = () => {
         activeAnimationsCount.current--;
         console.log(`[Animation] Animation completed. Active count: ${activeAnimationsCount.current}`);
+        if (activeAnimationsCount.current === 0) {
+          // Останавливаем мониторинг если нет активных анимаций
+          if (monitoringRAF.current) {
+            cancelAnimationFrame(monitoringRAF.current);
+            monitoringRAF.current = null;
+          }
+          frameDrops.current = 0;
+        }
         cancelAnimationFrame(animationFrameId);
         if (document.body.contains(projectile)) {
           document.body.removeChild(projectile);
@@ -898,6 +910,22 @@ function App() {
       }
     };
   }, []);
+
+  // Добавляем очистку анимаций при отключении от комнаты
+  useEffect(() => {
+    if (!socket) {
+      // Сбрасываем все счетчики анимаций при отключении
+      activeAnimationsCount.current = 0;
+      frameDrops.current = 0;
+      if (monitoringRAF.current) {
+        cancelAnimationFrame(monitoringRAF.current);
+        monitoringRAF.current = null;
+      }
+      // Удаляем все оставшиеся эмодзи
+      document.querySelectorAll('.emoji-projectile').forEach(el => el.remove());
+      document.querySelectorAll('.stuck-emoji').forEach(el => el.remove());
+    }
+  }, [socket]);
 
   if (connectionFailed && isAuthenticated) {
     return (
