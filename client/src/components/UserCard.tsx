@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Socket } from 'socket.io-client';
-import { User } from '../types';
 import { CardBack } from './CardBack';
 import { CardFront } from './CardFront';
 import { ShakeButton } from './ShakeButton';
@@ -14,17 +12,7 @@ import {
 } from './UserCardAnimations';
 import { animateEmojisFalling, cleanupAnimations, handleEasterEgg } from './UserCardEffects';
 import { EmojiCounters } from './UserCardEmoji';
-
-interface UserCardProps {
-  user: User;
-  isRevealed: boolean;
-  currentUserId?: string;
-  onThrowEmoji: (targetId: string) => void;
-  selectedEmoji: string;
-  easterEggState?: 'tilt' | 'fall' | 'shatter' | 'reset';
-  onVoteAfterReveal: () => void;
-  socket?: Socket | null;
-}
+import { UserCardProps } from './UserCardTypes';
 
 export function UserCard({
   user,

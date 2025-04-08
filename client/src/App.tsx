@@ -476,13 +476,13 @@ function App() {
       );
     }
 
-    // Проверяем относительно глобального сброса и времени оттряхивания
+    // Фильтруем устаревшие анимации
     pendingAnimations.current = pendingAnimations.current.filter((anim) => {
       // Всегда пропускаем анимации после глобального сброса
       if (anim.time < lastResetTime.current) return false;
 
       // Для бросков эмодзи проверяем время оттряхивания цели
-      if (anim.type === 'throw') {
+      if (anim.type === 'throw' && gameState?.users) {
         const targetUser = gameState.users.find((u) => u.id === anim.data.targetId);
         if (targetUser?.lastShakeTime && anim.time < targetUser.lastShakeTime) {
           return false;
