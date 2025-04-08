@@ -8,12 +8,14 @@ print('Starting migration: Levels Update');
 // 1. Create new collections if they don't exist
 try {
     db.createCollection('rooms');
-    print('✅ Created rooms collection');
+    db.createCollection('userstats');
+    db.createCollection('globalstats');
+    print('✅ Created collections');
 } catch (e) {
     if (e.codeName === 'NamespaceExists') {
-        print('ℹ️ Rooms collection already exists');
+        print('ℹ️ Collections already exist');
     } else {
-        print('❌ Error creating rooms collection:', e);
+        print('❌ Error creating collections:', e);
         throw e;
     }
 }
@@ -25,7 +27,8 @@ try {
     db.rooms.createIndex({ "lastActivity": -1 });
     db.rooms.createIndex({ "isActive": 1 });
     db.sessions.createIndex({ "roomCode": 1 });
-    db.stats.createIndex({ "userId": 1, "type": 1 });
+    db.userstats.createIndex({ "userId": 1 });
+    db.userstats.createIndex({ "lastUpdated": -1 });
     print('✅ Created all required indexes');
 } catch (e) {
     print('❌ Error creating indexes:', e);
@@ -95,6 +98,47 @@ try {
     print('✅ Updated user model');
 } catch (e) {
     print('❌ Error updating user model:', e);
+    throw e;
+}
+
+// 5. Initialize global stats if not exists
+print('Initializing global stats...');
+try {
+    const globalStats = db.globalstats.findOne();
+    if (!globalStats) {
+        const totalSessions = db.sessions.count();
+        const completedSessions = db.sessions.count({ status: 'completed' });
+        const totalUsers = db.users.count();
+        const activeUsers = db.users.count({
+            lastActivityAt: { 
+                $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) 
+            }
+        });
+
+        db.globalstats.insertOne({
+            totalSessions,
+            completedSessions,
+            totalUsers,
+            activeUsers,
+            votesStats: {
+                total: 0,
+                values: [],
+                averagePerSession: 0,
+                changedAfterReveal: 0
+            },
+            emojisStats: {
+                total: 0,
+                topEmojis: []
+            },
+            processedSessionIds: [],
+            lastUpdated: new Date()
+        });
+        print('✅ Initialized global stats');
+    } else {
+        print('ℹ️ Global stats already exist');
+    }
+} catch (e) {
+    print('❌ Error initializing global stats:', e);
     throw e;
 }
 

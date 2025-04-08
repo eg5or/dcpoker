@@ -11,7 +11,6 @@ interface RoomHeaderProps {
 
 export function RoomHeader({
   selectedRoom,
-  gameState,
   onLeaveRoom,
   onReveal,
   onReset,
