@@ -8,6 +8,7 @@ import { CreateRoomModal } from './components/rooms/CreateRoomModal';
 import { LandingPage } from './components/rooms/LandingPage';
 import { animateEmojisFalling } from './components/UserCardEffects';
 import useSocket from './hooks/useSocket';
+import { useSocketReconnect } from './hooks/useSocketReconnect';
 import { authService } from './services/auth.service';
 import { roomService } from './services/room.service';
 import type { GameState, Room } from './types';
@@ -60,6 +61,7 @@ function App() {
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [isRoomsLoading, setIsRoomsLoading] = useState(false);
   const { socket, connectionFailed } = useSocket(isAuthenticated ? authService.getToken() : null);
+  useSocketReconnect(socket);
   const [isJoined, setIsJoined] = useState(false);
   const [isConnecting, setIsConnecting] = useState(isAuthenticated);
   const [error, setError] = useState<string | null>(null);
@@ -82,6 +84,8 @@ function App() {
       data: any;
     }>
   >([]);
+  const [lastEmojiTime, setLastEmojiTime] = useState(0);
+  const EMOJI_THROTTLE_MS = 100; // Минимальный интервал между отправками
 
   // Получаем сохраненный эмодзи из localStorage или используем первый из списка
   const getSavedEmoji = (): string => {
@@ -521,27 +525,13 @@ function App() {
   useEffect(() => {
     if (!socket) return;
 
-    // Обработчик обновления состояния игры
-    const handleGameState = (state: GameState & { resetTime?: number }) => {
-      console.log('Получено обновление состояния:', state);
-      if (state.resetTime) {
-        lastResetTime.current = state.resetTime;
-      }
+    const handleGameState = (state: GameState) => {
       setGameState(state);
-
-      const currentUser = state.users.find((u: { id: string }) => u.id === socket.id);
-      if (currentUser) {
-        setCurrentVote(currentUser.vote);
-      }
     };
 
-    // Обработчики событий подключения/отключения
     const handleConnectError = (error: Error) => {
       console.error('Ошибка подключения:', error);
-      // Показываем ошибку только если пользователь аутентифицирован
-      if (isAuthenticated) {
-        setError('Ошибка подключения к серверу');
-      }
+      setError('Ошибка подключения к серверу');
       setIsConnecting(false);
     };
 
@@ -571,6 +561,13 @@ function App() {
 
     // Регистрируем обработчики событий
     socket.on('game:state', handleGameState);
+    socket.on('game:state:batch', (states: GameState[]) => {
+      // Применяем только последнее состояние из пакета
+      if (states.length > 0) {
+        setGameState(states[states.length - 1]);
+      }
+    });
+
     socket.on('user:joined', (user: { id: string; name: string }) =>
       console.log('Пользователь присоединился:', user)
     );
@@ -581,15 +578,20 @@ function App() {
     socket.on('emojis:fall', handleEmojisfall);
     socket.on('emojis:reset', () => socket.emit('emojis:fall'));
     socket.on('emoji:thrown', handleSocketEmojiThrown);
+    socket.on('emoji:thrown:batch', (events: [string, string, string, any, number, any][]) => {
+      // Обрабатываем каждое событие из пакета
+      events.forEach(([targetId, fromId, emoji, trajectory, throwTime, placement]) => {
+        handleSocketEmojiThrown(targetId, fromId, emoji, trajectory, throwTime, placement);
+      });
+    });
     socket.on('stats:updated', () => {
       console.log('Получено обновление статистики');
-      // Можно здесь выполнить действия при обновлении статистики,
-      // но основное обновление происходит в компоненте GlobalStatsPanel
     });
 
     // Отписываемся от событий при размонтировании или изменении сокета
     return () => {
       socket.off('game:state', handleGameState);
+      socket.off('game:state:batch');
       socket.off('user:joined');
       socket.off('connect_error', handleConnectError);
       socket.off('disconnect', handleDisconnect);
@@ -598,6 +600,8 @@ function App() {
       socket.off('emojis:fall', handleEmojisfall);
       socket.off('emojis:reset');
       socket.off('emoji:thrown', handleSocketEmojiThrown);
+      socket.off('emoji:thrown:batch');
+      socket.off('stats:updated');
     };
   }, [socket, isAuthenticated, handleEmojisfall, handleSocketEmojiThrown]);
 
@@ -739,6 +743,12 @@ function App() {
 
   const handleThrowEmoji = (targetId: string, emoji: string) => {
     if (!socket) return;
+
+    const now = Date.now();
+    if (now - lastEmojiTime < EMOJI_THROTTLE_MS) {
+      return;
+    }
+    setLastEmojiTime(now);
 
     // Генерируем случайные параметры для размещения эмодзи
     const randomX = Math.random() * 100; // Относительная позиция в процентах

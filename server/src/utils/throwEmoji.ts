@@ -1,8 +1,10 @@
 import mongoose from "mongoose";
 import { Server } from "socket.io";
-import { AuthenticatedSocket, GameState, useSession } from "../index.js";
+import { AuthenticatedSocket, GameState } from "../index.js";
 import { StatsService } from "../services/stats.service.js";
 import { VotingSessionDocument } from "./createOrUpdateVotingSession.js";
+import { emojiBatcher } from "./emojiBatcher.js";
+import { eventBroadcaster } from "./eventBroadcaster.js";
 
 export async function throwEmoji(
   targetUserId: string,
@@ -77,18 +79,10 @@ export async function throwEmoji(
 
     const throwTime = Date.now();
 
-    console.log('Emitting emoji:thrown event:', {
-      targetId: targetUser.id,
-      fromId: fromUser.id,
-      emoji,
-      trajectory,
-      placement,
-      throwTime,
-      roomCode: socket.roomCode
-    });
-
-    // Отправляем событие только в комнату, а не всем пользователям
-    io.to(socket.roomCode).emit(
+    // Используем оптимизированную рассылку событий
+    eventBroadcaster.throttledBroadcast(
+      io,
+      socket.roomCode,
       'emoji:thrown',
       targetUser.id,
       fromUser.id,
@@ -98,24 +92,16 @@ export async function throwEmoji(
       placement
     );
 
-    // Записываем событие броска эмодзи в текущую сессию
+    // Записываем событие броска эмодзи в текущую сессию через батчер
     if (currentSession && socket.user && socket.user.id) {
-      const emojis = useSession(currentSession, session => session.get('emojis')) || [];
-
-      // Создаем запись с данными о брошенном эмодзи
-      const emojiRecord = {
-        senderId: new mongoose.Types.ObjectId(socket.user.id), // ID аутентифицированного пользователя
-        targetId: targetUser.id, // ID целевого пользователя (ID сокета)
-        senderName: fromUser.name,
-        targetName: targetUser.name,
-        emoji,
-        thrownAt: new Date(),
-      };
-
-      emojis.push(emojiRecord);
-
-      useSession(currentSession, session => session.set({ emojis }));
-      await useSession(currentSession, session => session.save());
+      await emojiBatcher.addToBatch(
+        currentSession,
+        new mongoose.Types.ObjectId(socket.user.id),
+        targetUser.id,
+        fromUser.name,
+        targetUser.name,
+        emoji
+      );
 
       // Обновляем статистику эмодзи для отправителя
       try {
@@ -129,15 +115,13 @@ export async function throwEmoji(
 
         // Обновляем статистику с правильными ID отправителя и получателя
         await StatsService.updateEmojiStats(socket.user.id, targetUserId, emoji);
-
-        console.log(`Статистика эмодзи обновлена: от ${socket.user.id} к ${targetUserId}`);
       } catch (error) {
         console.error('Ошибка при обновлении статистики эмодзи:', error);
       }
     }
 
-    // Отправляем обновленное состояние только в комнату
-    io.to(socket.roomCode).emit('game:state', gameState);
+    // Используем оптимизированную рассылку для обновления состояния
+    eventBroadcaster.throttledBroadcast(io, socket.roomCode, 'game:state', gameState);
   } else {
     console.log('Users not found or same user:', {
       targetFound: !!targetUser,
