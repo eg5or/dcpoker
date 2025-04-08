@@ -87,6 +87,38 @@ function App() {
   const [lastEmojiTime, setLastEmojiTime] = useState(0);
   const EMOJI_THROTTLE_MS = 100; // Минимальный интервал между отправками
 
+  // Добавляем счетчик для отслеживания активных анимаций
+  const activeAnimationsCount = useRef(0);
+  const lastFrameTime = useRef(Date.now());
+  const frameDrops = useRef(0);
+
+  // Обертка для setIsConnecting с логированием
+  const setIsConnectingWithLog = useCallback((value: boolean) => {
+    console.log('[Connection] Setting isConnecting to:', value, 'Stack:', new Error().stack);
+    setIsConnecting(value);
+  }, []);
+
+  // Функция для мониторинга производительности анимаций
+  const monitorFrameRate = useCallback(() => {
+    const now = Date.now();
+    const frameTime = now - lastFrameTime.current;
+    
+    // Если фрейм занял больше 32мс (меньше 30 FPS)
+    if (frameTime > 32) {
+      frameDrops.current++;
+      console.warn(`[Performance] Frame drop detected: ${frameTime}ms, Total drops: ${frameDrops.current}`);
+    }
+    
+    lastFrameTime.current = now;
+    requestAnimationFrame(monitorFrameRate);
+  }, []);
+
+  // Запускаем мониторинг FPS
+  useEffect(() => {
+    const rafId = requestAnimationFrame(monitorFrameRate);
+    return () => cancelAnimationFrame(rafId);
+  }, [monitorFrameRate]);
+
   // Получаем сохраненный эмодзи из localStorage или используем первый из списка
   const getSavedEmoji = (): string => {
     const savedEmoji = localStorage.getItem(SELECTED_EMOJI_KEY);
@@ -300,10 +332,20 @@ function App() {
     localStorage.setItem(SELECTED_EMOJI_KEY, emoji);
   };
 
-  // Выделяем функции обработки анимаций
+  // Модифицируем обработчик анимаций
   const handleEmojiThrown = useCallback(
     ({ targetId, emoji, trajectory, placement }: EmojiThrowData) => {
-      if (!gameState?.users) return;
+      if (!gameState?.users) {
+        console.log('[Animation] Skipping animation - no gameState.users');
+        return;
+      }
+
+      activeAnimationsCount.current++;
+      console.log(`[Animation] Starting animation. Active count: ${activeAnimationsCount.current}`);
+      
+      if (activeAnimationsCount.current > 10) {
+        console.warn(`[Animation] High animation count: ${activeAnimationsCount.current}`);
+      }
 
       // Проверяем, не было ли оттряхивания после броска
       const targetUser = gameState.users.find((u) => u.id === targetId);
@@ -349,6 +391,9 @@ function App() {
         if (!startTime) startTime = currentTime;
         const elapsed = currentTime - startTime;
         const progress = Math.min(elapsed / duration, 1);
+
+        // Мониторим время выполнения анимации
+        const frameStartTime = performance.now();
 
         // Функция плавности для более естественного движения
         const easeOutBack = (t: number) => {
@@ -400,16 +445,25 @@ function App() {
             document.body.removeChild(projectile);
           }
         }
+
+        const frameEndTime = performance.now();
+        const frameDuration = frameEndTime - frameStartTime;
+        if (frameDuration > 16) { // Больше чем 60 FPS
+          console.warn(`[Performance] Heavy animation frame: ${frameDuration.toFixed(2)}ms`);
+        }
       };
 
       animationFrameId = requestAnimationFrame(animate);
 
-      return () => {
-        cancelAnimationFrame(animationFrameId);
+      const cleanup = () => {
+        activeAnimationsCount.current--;
+        console.log(`[Animation] Animation completed. Active count: ${activeAnimationsCount.current}`);
         if (document.body.contains(projectile)) {
           document.body.removeChild(projectile);
         }
       };
+
+      return cleanup;
     },
     [gameState.users]
   );
@@ -461,9 +515,15 @@ function App() {
     [handleEmojiThrown]
   );
 
-  // Функция для обработки отложенных анимаций
+  // Модифицируем processPendingAnimations
   const processPendingAnimations = useCallback(() => {
     if (!isPageVisible.current || pendingAnimations.current.length === 0) return;
+
+    console.log(`[Queue] Processing animations queue. Size: ${pendingAnimations.current.length}`);
+    
+    if (pendingAnimations.current.length > 20) {
+      console.warn(`[Queue] Large animation queue: ${pendingAnimations.current.length}`);
+    }
 
     // Сортируем анимации по времени
     pendingAnimations.current.sort((a, b) => a.time - b.time);
@@ -534,7 +594,7 @@ function App() {
     const handleConnectError = (error: Error) => {
       console.error('Ошибка подключения:', error);
       setError('Ошибка подключения к серверу');
-      setIsConnecting(false);
+      setIsConnectingWithLog(false);
     };
 
     const handleDisconnect = (reason: string) => {
@@ -607,36 +667,28 @@ function App() {
     };
   }, [socket, isAuthenticated, handleEmojisfall, handleSocketEmojiThrown]);
 
-  // Автоматическое подключение при наличии аутентификации
+  // Заменяем все использования setIsConnecting на setIsConnectingWithLog
   useEffect(() => {
-    // Если не аутентифицирован, сразу сбрасываем флаг загрузки
     if (!isAuthenticated) {
-      setIsConnecting(false);
-      setError(null); // Сбрасываем ошибку при выходе
+      setIsConnectingWithLog(false);
+      setError(null);
       return;
     }
 
-    // Если есть сокет, значит соединение установлено успешно
     if (socket) {
-      setIsConnecting(false);
-      setError(null); // Сбрасываем ошибку при успешном подключении
-
-      // Если соединение установлено и пользователь не присоединился к игре
+      setIsConnectingWithLog(false);
+      setError(null);
+      
       if (isAuthenticated && user && !isJoined && selectedRoom) {
-        const roomId = getRoomId(selectedRoom);
-        console.log('Автоматическое подключение к комнате:', roomId, 'с именем:', user.name);
         socket.emit('room:join', selectedRoom.code, user.name);
         setIsJoined(true);
       }
     }
-    // Если соединение не удалось, сбрасываем флаг подключения и показываем ошибку
     else if (connectionFailed && isAuthenticated) {
-      setIsConnecting(false);
-      setError(
-        'Не удалось подключиться к серверу. Пожалуйста, перезагрузите страницу или попробуйте позже.'
-      );
+      setIsConnectingWithLog(false);
+      setError('Не удалось подключиться к серверу...');
     }
-  }, [socket, isAuthenticated, user, connectionFailed, isJoined, selectedRoom]);
+  }, [socket, isAuthenticated, user, connectionFailed, isJoined, selectedRoom, setIsConnectingWithLog]);
 
   // Сбрасываем ошибку при изменении состояния сокета
   useEffect(() => {
@@ -691,7 +743,7 @@ function App() {
       const userData = await authService.login(login, password);
       setIsAuthenticated(true);
       setUser(userData);
-      setIsConnecting(true);
+      setIsConnectingWithLog(true);
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message);
@@ -707,7 +759,7 @@ function App() {
       const userData = await authService.register(displayName, login, password);
       setIsAuthenticated(true);
       setUser(userData);
-      setIsConnecting(true);
+      setIsConnectingWithLog(true);
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message);
