@@ -468,8 +468,8 @@ function App() {
           clearTimeout(forceCleanupTimeout);
           
           // Попадание
-          targetElement.classList.add('animate-shake');
-          setTimeout(() => targetElement.classList.remove('animate-shake'), 500);
+          targetElement.classList.add('shake-animation');
+          setTimeout(() => targetElement.classList.remove('shake-animation'), 500);
 
           // Создаем "прилипший" эмодзи
           const stuckEmoji = document.createElement('div');
