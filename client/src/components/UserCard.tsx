@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Socket } from 'socket.io-client';
+import { GameState, User } from '../types';
 import { CardBack } from './CardBack';
 import { CardFront } from './CardFront';
 import { ShakeButton } from './ShakeButton';
@@ -12,7 +14,18 @@ import {
 } from './UserCardAnimations';
 import { animateEmojisFalling, cleanupAnimations, handleEasterEgg } from './UserCardEffects';
 import { EmojiCounters } from './UserCardEmoji';
-import { UserCardProps } from './UserCardTypes';
+
+interface UserCardProps {
+  user: User;
+  isRevealed: boolean;
+  currentUserId?: string;
+  onThrowEmoji: (targetId: string) => void;
+  selectedEmoji: string;
+  easterEggState?: 'tilt' | 'fall' | 'shatter' | 'reset';
+  onVoteAfterReveal: () => void;
+  socket?: Socket | null;
+  gameState: GameState;
+}
 
 export function UserCard({
   user,
@@ -21,7 +34,7 @@ export function UserCard({
   onThrowEmoji,
   easterEggState,
   onVoteAfterReveal,
-  socket,
+  socket
 }: UserCardProps) {
   const isCurrentUser = user.id === currentUserId;
   const [clickCount, setClickCount] = useState(0);
@@ -409,34 +422,36 @@ export function UserCard({
     height: '100%',
   });
 
+  const handleClick = () => {
+    if (!isCurrentUser && user.isOnline && !isAnimatingRef.current) {
+      onThrowEmoji(user.id);
+    } else if (isCurrentUser && user.vote === 0.1) {
+      setClickCount((prev: number) => {
+        const newCount = prev + 1;
+        const refs = {
+          cardInnerRef,
+          cardContainerRef,
+          animationFrameRef,
+          animationStartTimeRef,
+          easterEggAnimationFrameRef,
+          shardsRef,
+        };
+        if (newCount >= 4 && newCount < 9) {
+          startTiltAnimation(newCount, refs);
+        } else if (newCount === 9) {
+          startFallingAnimation(refs);
+        }
+        return newCount;
+      });
+    }
+  };
+
   return (
     <div
       ref={cardContainerRef}
       data-user-id={user.id}
       className="card-container relative h-[140px] sm:h-[160px] select-none"
-      onClick={() => {
-        if (!isCurrentUser && user.isOnline && !isAnimatingRef.current) {
-          onThrowEmoji(user.id);
-        } else if (isCurrentUser && user.vote === 0.1) {
-          setClickCount((prev) => {
-            const newCount = prev + 1;
-            const refs = {
-              cardInnerRef,
-              cardContainerRef,
-              animationFrameRef,
-              animationStartTimeRef,
-              easterEggAnimationFrameRef,
-              shardsRef,
-            };
-            if (newCount >= 4 && newCount < 9) {
-              startTiltAnimation(newCount, refs);
-            } else if (newCount === 9) {
-              startFallingAnimation(refs);
-            }
-            return newCount;
-          });
-        }
-      }}
+      onClick={handleClick}
     >
       {/* Кнопка оттряхивания эмодзи */}
       {isCurrentUser && hasStuckEmojis() && (
