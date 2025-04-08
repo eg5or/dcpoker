@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Socket } from 'socket.io-client';
-import { GameState, User } from '../types';
+import { User } from '../types';
 import { CardBack } from './CardBack';
 import { CardFront } from './CardFront';
 import { ShakeButton } from './ShakeButton';
@@ -24,7 +24,6 @@ interface UserCardProps {
   easterEggState?: 'tilt' | 'fall' | 'shatter' | 'reset';
   onVoteAfterReveal: () => void;
   socket?: Socket | null;
-  gameState: GameState;
 }
 
 export function UserCard({
