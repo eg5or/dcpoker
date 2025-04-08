@@ -28,7 +28,7 @@ export function UserCard({
   const [_, setCurrentEasterEggState] = useState<string | undefined>(undefined);
   const shakeAnimationInProgress = useRef(false);
   const isPageVisible = useRef(true);
-  const pendingShakeAnimation = useRef(false);
+  const pendingShakeAnimation = useRef<{pending: boolean; indices?: number[]}>({ pending: false });
   // Флаг для отслеживания локальной анимации тряски
   const localShakeAnimationStarted = useRef(false);
 
@@ -67,14 +67,14 @@ export function UserCard({
       // Если страница стала видимой и есть отложенная анимация тряски
       if (
         isPageVisible.current &&
-        pendingShakeAnimation.current &&
+        pendingShakeAnimation.current.pending &&
         !shakeAnimationInProgress.current
       ) {
-        pendingShakeAnimation.current = false;
         const stuckEmojis = cardContainerRef.current?.querySelectorAll('.stuck-emoji');
         if (stuckEmojis?.length) {
-          console.log('[Shake] Page became visible, continuing pending animation');
-          animateEmojisFalling(stuckEmojis, 'random');
+          console.log('[Shake] Page became visible, continuing pending animation with indices:', pendingShakeAnimation.current.indices);
+          animateEmojisFalling(stuckEmojis, 'random', pendingShakeAnimation.current.indices);
+          pendingShakeAnimation.current = { pending: false };
         }
       }
     };
@@ -174,7 +174,7 @@ export function UserCard({
       // Если страница не видна, отмечаем что нужно выполнить анимацию позже
       if (!isPageVisible.current) {
         console.log('[Shake] Page not visible, queueing animation');
-        pendingShakeAnimation.current = true;
+        pendingShakeAnimation.current = { pending: true, indices: fallingIndices };
         return;
       }
 
@@ -189,52 +189,15 @@ export function UserCard({
         console.log('[Shake] Starting emoji fall from server event');
         shakeAnimationInProgress.current = true;
 
-        if (fallingIndices && fallingIndices.length > 0) {
-          // Используем полученные от сервера индексы для определения падающих эмодзи
-          console.log(
-            `[Shake] Server says ${fallingIndices.length} out of ${stuckEmojis.length} emojis should fall`
-          );
-
-          // Конвертируем NodeList в массив
-          const emojiArray = Array.from(stuckEmojis);
-
-          // Фильтруем эмодзи по индексам
-          const fallingEmojis = fallingIndices
-            .filter((index) => index < emojiArray.length)
-            .map((index) => emojiArray[index]);
-
-          // Запускаем анимацию только для указанных эмодзи
-          if (fallingEmojis.length > 0) {
-            // Создаем новый NodeList из падающих эмодзи
-            const fallingNodeList = {
-              length: fallingEmojis.length,
-              item: (index: number) => fallingEmojis[index],
-              [Symbol.iterator]: function* () {
-                for (let i = 0; i < this.length; i++) {
-                  yield this.item(i);
-                }
-              },
-              forEach: function (callback: (item: Element, index: number) => void) {
-                for (let i = 0; i < this.length; i++) {
-                  callback(this.item(i), i);
-                }
-              },
-            } as NodeListOf<Element>;
-
-            // Запускаем анимацию падения для синхронизированных эмодзи
-            animateEmojisFalling(fallingNodeList, 'all');
-          }
-        } else {
-          // Для обратной совместимости, если индексы не были получены
-          animateEmojisFalling(stuckEmojis, 'random');
-        }
+        // Запускаем анимацию с индексами от сервера
+        animateEmojisFalling(stuckEmojis, 'random', fallingIndices);
 
         // После завершения анимации падения сбрасываем флаг
         setTimeout(() => {
           shakeAnimationInProgress.current = false;
           // Проверяем, не появились ли новые запросы на тряску
-          if (pendingShakeAnimation.current && isPageVisible.current) {
-            pendingShakeAnimation.current = false;
+          if (pendingShakeAnimation.current.pending && isPageVisible.current) {
+            pendingShakeAnimation.current = { pending: false };
             handleShake(userId, shakeTime, fallingIndices);
           }
         }, 1200); // Длительность анимации падения
@@ -246,7 +209,7 @@ export function UserCard({
 
       // Если страница не видна, отмечаем что нужно выполнить анимацию позже
       if (!isPageVisible.current) {
-        pendingShakeAnimation.current = true;
+        pendingShakeAnimation.current = { pending: true, indices: undefined };
         return;
       }
 
