@@ -84,8 +84,6 @@ function App() {
       data: any;
     }>
   >([]);
-  const [lastEmojiTime, setLastEmojiTime] = useState(0);
-  const EMOJI_THROTTLE_MS = 100; // Минимальный интервал между отправками
 
   // Добавляем счетчик для отслеживания активных анимаций
   const activeAnimationsCount = useRef(0);
@@ -94,6 +92,12 @@ function App() {
   const lastWarningTime = useRef(0);
   const WARNING_THROTTLE = 1000; // Предупреждение не чаще чем раз в секунду
   const monitoringRAF = useRef<number | null>(null);
+
+  // Добавляем состояние для отслеживания последнего успешного состояния
+  const [lastValidGameState, setLastValidGameState] = useState<GameState>(initialGameState);
+  const throttledEmojis = useRef<{[key: string]: number}>({});
+  const EMOJI_THROTTLE_WINDOW = 2000; // 2 секунды окно для троттлинга
+  const MAX_EMOJIS_PER_WINDOW = 5; // максимум 5 эмодзи за 2 секунды
 
   // Обертка для setIsConnecting с логированием
   const setIsConnectingWithLog = useCallback((value: boolean) => {
@@ -350,8 +354,10 @@ function App() {
   // Модифицируем обработчик анимаций
   const handleEmojiThrown = useCallback(
     ({ targetId, emoji, trajectory, placement }: EmojiThrowData) => {
-      if (!gameState?.users) {
-        console.log('[Animation] Skipping animation - no gameState.users');
+      const currentGameState = gameState?.users ? gameState : lastValidGameState;
+      
+      if (!currentGameState?.users) {
+        console.log('[Animation] No valid game state available, skipping animation');
         return;
       }
 
@@ -369,7 +375,7 @@ function App() {
       console.log(`[Animation] Starting animation. Active count: ${activeAnimationsCount.current}`);
       
       // Проверяем, не было ли оттряхивания после броска
-      const targetUser = gameState.users.find((u) => u.id === targetId);
+      const targetUser = currentGameState.users.find((u) => u.id === targetId);
       if (targetUser?.lastShakeTime && targetUser.lastShakeTime > Date.now()) {
         activeAnimationsCount.current--; // Уменьшаем счетчик если пропускаем анимацию
         return;
@@ -522,7 +528,7 @@ function App() {
 
       return cleanup;
     },
-    [gameState?.users, monitorFrameRate]
+    [gameState, lastValidGameState, monitorFrameRate]
   );
 
   // Добавляем периодическую проверку и сброс счетчика анимаций
@@ -668,19 +674,26 @@ function App() {
     if (!socket) return;
 
     const handleGameState = (state: GameState) => {
+      if (state?.users?.length > 0) {
+        setLastValidGameState(state);
+      }
       setGameState(state);
     };
 
-    const handleConnectError = (error: Error) => {
-      console.error('Ошибка подключения:', error);
-      setError('Ошибка подключения к серверу');
-      setIsConnectingWithLog(false);
+    const handleReconnect = () => {
+      console.log('[Socket] Reconnected, restoring state...');
+      if (selectedRoom) {
+        console.log('[Socket] Rejoining room:', selectedRoom.code);
+        socket.emit('room:join', selectedRoom.code, user?.name || '');
+      }
     };
 
     const handleDisconnect = (reason: string) => {
-      console.log('Отключение от сервера, причина:', reason);
-
-      // Если отключение связано с выходом пользователя или переходом на страницу логина, не показываем ошибку
+      console.log('[Socket] Disconnected, reason:', reason);
+      if (reason === 'io server disconnect') {
+        // Сервер разорвал соединение, пробуем переподключиться
+        socket.connect();
+      }
       if (!isAuthenticated) {
         setError(null);
       } else {
@@ -713,7 +726,7 @@ function App() {
     socket.on('user:joined', (user: { id: string; name: string }) =>
       console.log('Пользователь присоединился:', user)
     );
-    socket.on('connect_error', handleConnectError);
+    socket.on('connect', handleReconnect);
     socket.on('disconnect', handleDisconnect);
     socket.on('force:logout', handleForceLogout);
     socket.on('room:error', handleRoomError);
@@ -735,7 +748,7 @@ function App() {
       socket.off('game:state', handleGameState);
       socket.off('game:state:batch');
       socket.off('user:joined');
-      socket.off('connect_error', handleConnectError);
+      socket.off('connect', handleReconnect);
       socket.off('disconnect', handleDisconnect);
       socket.off('force:logout', handleForceLogout);
       socket.off('room:error', handleRoomError);
@@ -875,27 +888,43 @@ function App() {
     socket.emit('recalculate:average');
   };
 
-  const handleThrowEmoji = (targetId: string, emoji: string) => {
+  const handleThrowEmoji = useCallback((targetId: string, emoji: string) => {
     if (!socket) return;
 
     const now = Date.now();
-    if (now - lastEmojiTime < EMOJI_THROTTLE_MS) {
+    const userKey = `${targetId}:${emoji}`;
+    
+    // Очищаем старые записи
+    Object.keys(throttledEmojis.current).forEach(key => {
+      if (now - throttledEmojis.current[key] > EMOJI_THROTTLE_WINDOW) {
+        delete throttledEmojis.current[key];
+      }
+    });
+
+    // Проверяем количество эмодзи в окне
+    const recentEmojis = Object.values(throttledEmojis.current).filter(
+      time => now - time < EMOJI_THROTTLE_WINDOW
+    ).length;
+
+    if (recentEmojis >= MAX_EMOJIS_PER_WINDOW) {
+      console.log('[Emoji] Too many emojis in time window, skipping');
       return;
     }
-    setLastEmojiTime(now);
+
+    // Обновляем время последнего броска
+    throttledEmojis.current[userKey] = now;
 
     // Генерируем случайные параметры для размещения эмодзи
-    const randomX = Math.random() * 100; // Относительная позиция в процентах
-    const randomY = Math.random() * 100; // Относительная позиция в процентах
-    const randomRotation = Math.random() * 40 - 20; // от -20 до +20 градусов
+    const randomX = Math.random() * 100;
+    const randomY = Math.random() * 100;
+    const randomRotation = Math.random() * 40 - 20;
 
-    // Отправляем параметры на сервер
     socket.emit('throw:emoji', targetId, emoji, {
       x: randomX,
       y: randomY,
       rotation: randomRotation,
     });
-  };
+  }, [socket]);
 
   const logout = () => {
     console.log('Выполняется выход...');
@@ -973,6 +1002,26 @@ function App() {
       document.querySelectorAll('.emoji-projectile').forEach(el => el.remove());
       document.querySelectorAll('.stuck-emoji').forEach(el => el.remove());
     }
+  }, [socket]);
+
+  // Добавляем обработку ошибок сокета
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleError = (error: Error) => {
+      console.error('[Socket] Error:', error);
+      // Если произошла ошибка сокета, пробуем переподключиться
+      if (!socket.connected) {
+        console.log('[Socket] Attempting to reconnect...');
+        socket.connect();
+      }
+    };
+
+    socket.on('error', handleError);
+    
+    return () => {
+      socket.off('error', handleError);
+    };
   }, [socket]);
 
   if (connectionFailed && isAuthenticated) {
