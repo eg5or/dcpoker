@@ -303,6 +303,8 @@ function App() {
   // Выделяем функции обработки анимаций
   const handleEmojiThrown = useCallback(
     ({ targetId, emoji, trajectory, placement }: EmojiThrowData) => {
+      if (!gameState?.users) return;
+
       // Проверяем, не было ли оттряхивания после броска
       const targetUser = gameState.users.find((u) => u.id === targetId);
       if (targetUser?.lastShakeTime && targetUser.lastShakeTime > Date.now()) {
