@@ -91,6 +91,8 @@ function App() {
   const activeAnimationsCount = useRef(0);
   const lastFrameTime = useRef(Date.now());
   const frameDrops = useRef(0);
+  const lastWarningTime = useRef(0);
+  const WARNING_THROTTLE = 1000; // Предупреждение не чаще чем раз в секунду
 
   // Обертка для setIsConnecting с логированием
   const setIsConnectingWithLog = useCallback((value: boolean) => {
@@ -106,7 +108,12 @@ function App() {
     // Если фрейм занял больше 32мс (меньше 30 FPS)
     if (frameTime > 32) {
       frameDrops.current++;
-      console.warn(`[Performance] Frame drop detected: ${frameTime}ms, Total drops: ${frameDrops.current}`);
+      
+      // Логируем не чаще чем раз в секунду
+      if (now - lastWarningTime.current > WARNING_THROTTLE) {
+        console.warn(`[Performance] Low FPS detected: ${Math.round(1000/frameTime)} FPS, Total drops: ${frameDrops.current}`);
+        lastWarningTime.current = now;
+      }
     }
     
     lastFrameTime.current = now;
