@@ -95,7 +95,7 @@ function App() {
 
   // Добавляем состояние для отслеживания последнего успешного состояния
   const [lastValidGameState, setLastValidGameState] = useState<GameState>(initialGameState);
-  const throttledEmojis = useRef<{[key: string]: number}>({});
+  const throttledEmojis = useRef<number[]>([]);
   const EMOJI_THROTTLE_WINDOW = 2000; // 2 секунды окно для троттлинга
   const MAX_EMOJIS_PER_WINDOW = 5; // максимум 5 эмодзи за 2 секунды
 
@@ -892,33 +892,28 @@ function App() {
     if (!socket) return;
 
     const now = Date.now();
-    const userKey = `${targetId}:${emoji}`;
     
-    // Очищаем старые записи
-    Object.keys(throttledEmojis.current).forEach(key => {
-      if (now - throttledEmojis.current[key] > EMOJI_THROTTLE_WINDOW) {
-        delete throttledEmojis.current[key];
-      }
-    });
-
-    // Проверяем количество эмодзи в окне
-    const recentEmojis = Object.values(throttledEmojis.current).filter(
+    // Очищаем старые броски
+    throttledEmojis.current = throttledEmojis.current.filter(
       time => now - time < EMOJI_THROTTLE_WINDOW
-    ).length;
+    );
 
-    if (recentEmojis >= MAX_EMOJIS_PER_WINDOW) {
-      console.log('[Emoji] Too many emojis in time window, skipping');
+    // Проверяем количество бросков в окне
+    if (throttledEmojis.current.length >= MAX_EMOJIS_PER_WINDOW) {
+      console.log(`[Emoji] Throttled: ${throttledEmojis.current.length} emojis in last ${EMOJI_THROTTLE_WINDOW}ms`);
       return;
     }
 
-    // Обновляем время последнего броска
-    throttledEmojis.current[userKey] = now;
+    // Добавляем новый бросок
+    throttledEmojis.current.push(now);
 
     // Генерируем случайные параметры для размещения эмодзи
     const randomX = Math.random() * 100;
     const randomY = Math.random() * 100;
     const randomRotation = Math.random() * 40 - 20;
 
+    console.log(`[Emoji] Throwing emoji (${throttledEmojis.current.length}/${MAX_EMOJIS_PER_WINDOW} in window)`);
+    
     socket.emit('throw:emoji', targetId, emoji, {
       x: randomX,
       y: randomY,
