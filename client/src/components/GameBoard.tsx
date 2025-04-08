@@ -73,7 +73,7 @@ export function GameBoard({
     }
   };
 
-  if (isGameLoading) {
+  if (isGameLoading || gameState.users.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -133,10 +133,12 @@ export function GameBoard({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {[...gameState.users]
             .sort((a, b) => {
+              if (!a || !b) return 0;
+              if (!('isOnline' in a) || !('isOnline' in b) || !('joinedAt' in a) || !('joinedAt' in b)) return 0;
               if (a.isOnline && !b.isOnline) return -1;
               if (!a.isOnline && b.isOnline) return 1;
               if (a.isOnline === b.isOnline) {
-                return b.joinedAt - a.joinedAt;
+                return (b.joinedAt || 0) - (a.joinedAt || 0);
               }
               return 0;
             })
