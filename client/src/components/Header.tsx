@@ -8,9 +8,6 @@ interface HeaderProps {
   userName: string;
   onLogout: () => void;
   onProfileClick: () => void;
-  onReveal: () => void;
-  onReset: () => void;
-  onResetUsers: () => void;
   selectedEmoji: string;
   onSelectEmoji: (emoji: string) => void;
   rooms: Room[];
@@ -23,9 +20,6 @@ export const Header = ({
   userName,
   onLogout,
   onProfileClick,
-  onReveal,
-  onReset,
-  onResetUsers,
   selectedEmoji,
   onSelectEmoji,
   rooms,
@@ -60,72 +54,6 @@ export const Header = ({
           onSelectRoom={onSelectRoom}
           onCreateRoom={onCreateRoom}
         />
-
-        {/* Кнопки управления игрой */}
-        <div className="hidden sm:flex items-center space-x-2 mr-auto">
-          <Tooltip content="Показать карты" position="bottom">
-            <button
-              onClick={onReveal}
-              className={`${buttonClasses} bg-green-500 hover:bg-green-600 w-10`}
-              aria-label="Показать карты"
-              disabled={!selectedRoom}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                <path
-                  fillRule="evenodd"
-                  d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </button>
-          </Tooltip>
-
-          <Tooltip content="Начать новое голосование" position="bottom">
-            <button
-              onClick={onReset}
-              className={`${buttonClasses} bg-red-500 hover:bg-red-600 w-10`}
-              aria-label="Начать новое голосование"
-              disabled={!selectedRoom}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </button>
-          </Tooltip>
-
-          <Tooltip content="Сбросить всех пользователей" position="bottom">
-            <button
-              onClick={onResetUsers}
-              className={`${buttonClasses} bg-red-700 hover:bg-red-800 w-10`}
-              aria-label="Сбросить всех пользователей"
-              disabled={!selectedRoom}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
-              </svg>
-            </button>
-          </Tooltip>
-        </div>
 
         <div className="flex items-center space-x-3">
           {/* Выбор эмодзи */}
@@ -211,72 +139,8 @@ export const Header = ({
         </div>
       </div>
 
-      {/* Мобильные кнопки управления */}
+      {/* Мобильный выбор эмодзи */}
       <div className="sm:hidden container mx-auto px-4 py-2 border-t border-gray-700 flex justify-around">
-        <Tooltip content="Показать карты" position="bottom">
-          <button
-            onClick={onReveal}
-            className={`${buttonClasses} bg-green-500 hover:bg-green-600 w-10`}
-            aria-label="Показать карты"
-            disabled={!selectedRoom}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-              <path
-                fillRule="evenodd"
-                d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
-        </Tooltip>
-
-        <Tooltip content="Начать новое голосование" position="bottom">
-          <button
-            onClick={onReset}
-            className={`${buttonClasses} bg-red-500 hover:bg-red-600 w-10`}
-            aria-label="Начать новое голосование"
-            disabled={!selectedRoom}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
-        </Tooltip>
-
-        <Tooltip content="Сбросить всех пользователей" position="bottom">
-          <button
-            onClick={onResetUsers}
-            className={`${buttonClasses} bg-red-700 hover:bg-red-800 w-10`}
-            aria-label="Сбросить всех пользователей"
-            disabled={!selectedRoom}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
-            </svg>
-          </button>
-        </Tooltip>
-
-        {/* Мобильный выбор эмодзи */}
         <div className="relative">
           <Tooltip content="Выбрать эмодзи" position="bottom">
             <button

@@ -874,9 +874,6 @@ function App() {
           userName={user?.name || ''}
           onLogout={logout}
           onProfileClick={handleProfileClick}
-          onReveal={handleReveal}
-          onReset={handleReset}
-          onResetUsers={() => socket?.emit('users:reset')}
           selectedEmoji={selectedEmoji}
           onSelectEmoji={handleEmojiChange}
           rooms={rooms}
@@ -906,9 +903,6 @@ function App() {
         userName={user?.name || ''}
         onLogout={logout}
         onProfileClick={handleProfileClick}
-        onReveal={handleReveal}
-        onReset={handleReset}
-        onResetUsers={() => socket?.emit('users:reset')}
         selectedEmoji={selectedEmoji}
         onSelectEmoji={handleEmojiChange}
         rooms={rooms}

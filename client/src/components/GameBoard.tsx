@@ -5,6 +5,7 @@ import { AverageScore } from './AverageScore';
 import { ConfirmDialog } from './ConfirmDialog';
 import { ErrorMessage } from './ErrorMessage';
 import { GlobalStatsPanel } from './GlobalStatsPanel';
+import { RoomHeader } from './RoomHeader';
 import { UserCard } from './UserCard';
 import { VoteChangeAlert } from './VoteChangeAlert';
 import { VotingPanel } from './VotingPanel';
@@ -44,7 +45,6 @@ export function GameBoard({
   onThrowEmoji,
   sequence = [],
   selectedEmoji,
-  onEmojiChange,
   selectedRoom,
   onLeaveRoom
 }: GameBoardProps) {
@@ -109,23 +109,14 @@ export function GameBoard({
 
       <div className="max-w-6xl mx-auto">
         {selectedRoom && (
-          <div className="mb-6 bg-gray-800 p-4 rounded-lg">
-            <div className="flex justify-between items-center">
-              <h1 className="text-2xl font-bold">
-                {selectedRoom.code.substring(0, 2)} {selectedRoom.name}
-              </h1>
-              <button 
-                onClick={onLeaveRoom} 
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded transition-colors"
-                title="Выйти из комнаты"
-              >
-                Выйти
-              </button>
-            </div>
-            {selectedRoom.description && (
-              <p className="text-gray-400 mt-2">{selectedRoom.description}</p>
-            )}
-          </div>
+          <RoomHeader
+            selectedRoom={selectedRoom}
+            gameState={gameState}
+            onLeaveRoom={onLeaveRoom}
+            onReveal={onReveal}
+            onReset={onReset}
+            onResetUsers={onResetUsers}
+          />
         )}
 
         <VoteChangeAlert
