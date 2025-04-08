@@ -93,6 +93,7 @@ function App() {
   const frameDrops = useRef(0);
   const lastWarningTime = useRef(0);
   const WARNING_THROTTLE = 1000; // Предупреждение не чаще чем раз в секунду
+  const monitoringRAF = useRef<number | null>(null);
 
   // Обертка для setIsConnecting с логированием
   const setIsConnectingWithLog = useCallback((value: boolean) => {
@@ -102,14 +103,21 @@ function App() {
 
   // Функция для мониторинга производительности анимаций
   const monitorFrameRate = useCallback(() => {
+    // Если нет активных анимаций, останавливаем мониторинг
+    if (activeAnimationsCount.current === 0) {
+      if (monitoringRAF.current) {
+        cancelAnimationFrame(monitoringRAF.current);
+        monitoringRAF.current = null;
+      }
+      frameDrops.current = 0; // Сбрасываем счетчик
+      return;
+    }
+
     const now = Date.now();
     const frameTime = now - lastFrameTime.current;
     
-    // Если фрейм занял больше 32мс (меньше 30 FPS)
     if (frameTime > 32) {
       frameDrops.current++;
-      
-      // Логируем не чаще чем раз в секунду
       if (now - lastWarningTime.current > WARNING_THROTTLE) {
         console.warn(`[Performance] Low FPS detected: ${Math.round(1000/frameTime)} FPS, Total drops: ${frameDrops.current}`);
         lastWarningTime.current = now;
@@ -117,7 +125,7 @@ function App() {
     }
     
     lastFrameTime.current = now;
-    requestAnimationFrame(monitorFrameRate);
+    monitoringRAF.current = requestAnimationFrame(monitorFrameRate);
   }, []);
 
   // Запускаем мониторинг FPS
@@ -348,6 +356,10 @@ function App() {
       }
 
       activeAnimationsCount.current++;
+      // Запускаем мониторинг при старте анимации если он еще не запущен
+      if (!monitoringRAF.current) {
+        monitoringRAF.current = requestAnimationFrame(monitorFrameRate);
+      }
       console.log(`[Animation] Starting animation. Active count: ${activeAnimationsCount.current}`);
       
       if (activeAnimationsCount.current > 10) {
@@ -473,7 +485,7 @@ function App() {
 
       return cleanup;
     },
-    [gameState.users]
+    [gameState?.users, monitorFrameRate]
   );
 
   const handleEmojiFall = useCallback(() => {
@@ -877,6 +889,15 @@ function App() {
     
     setIsJoined(false);
   };
+
+  // Убираем автозапуск мониторинга
+  useEffect(() => {
+    return () => {
+      if (monitoringRAF.current) {
+        cancelAnimationFrame(monitoringRAF.current);
+      }
+    };
+  }, []);
 
   if (connectionFailed && isAuthenticated) {
     return (
