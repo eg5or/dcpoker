@@ -110,6 +110,74 @@ else
     echo "⏩ Используем существующие образы, если они есть."
 fi
 
+# Функция для запуска миграции MongoDB
+run_mongodb_migration() {
+    local migration_file=$1
+    echo "🔄 Запуск миграции: $migration_file"
+    
+    # Проверяем, существует ли контейнер MongoDB
+    if [ ! "$(docker ps -q -f name=dcpoker-mongodb)" ]; then
+        echo "❌ Контейнер MongoDB не запущен. Запускаем контейнер..."
+        docker-compose -f docker-compose.prod.yml up -d mongodb
+        # Ждем 5 секунд, чтобы MongoDB успела запуститься
+        sleep 5
+    fi
+    
+    # Копируем файл миграции в контейнер и выполняем его
+    docker cp "$migration_file" dcpoker-mongodb:/migration.js
+    docker exec dcpoker-mongodb mongosh --file /migration.js
+    
+    if [ $? -eq 0 ]; then
+        echo "✅ Миграция успешно выполнена"
+        return 0
+    else
+        echo "❌ Ошибка при выполнении миграции"
+        return 1
+    fi
+}
+
+# Функция для выбора файла миграции
+select_migration() {
+    local migrations_dir="server/migrations/scripts"
+    if [ ! -d "$migrations_dir" ]; then
+        echo "❌ Директория с миграциями не найдена: $migrations_dir"
+        return 1
+    fi
+    
+    # Получаем список файлов миграций
+    local migrations=($(ls -1 "$migrations_dir"/*.js 2>/dev/null))
+    if [ ${#migrations[@]} -eq 0 ]; then
+        echo "ℹ️ Файлы миграций не найдены в $migrations_dir"
+        return 1
+    fi
+    
+    echo "📋 Доступные миграции:"
+    for i in "${!migrations[@]}"; do
+        echo "$((i+1)). $(basename "${migrations[$i]}")"
+    done
+    
+    read -p "Выберите номер миграции для применения (или 0 для пропуска): " migration_number
+    
+    if [ "$migration_number" = "0" ]; then
+        echo "⏩ Пропускаем миграцию"
+        return 1
+    fi
+    
+    if [ "$migration_number" -gt 0 ] && [ "$migration_number" -le "${#migrations[@]}" ]; then
+        local selected_migration="${migrations[$((migration_number-1))]}"
+        echo "🔍 Выбрана миграция: $(basename "$selected_migration")"
+        run_mongodb_migration "$selected_migration"
+        return $?
+    else
+        echo "❌ Неверный номер миграции"
+        return 1
+    fi
+}
+
+# Запрос на выполнение миграции
+echo "🔄 Проверка необходимости миграции базы данных..."
+select_migration
+
 # Собираем и запускаем приложение в продакшен-режиме
 echo "🔨 Собираем и запускаем контейнеры..."
 docker-compose -f docker-compose.prod.yml up -d --build
