@@ -355,6 +355,12 @@ function App() {
         return;
       }
 
+      // Проверяем, не слишком ли много активных анимаций
+      if (activeAnimationsCount.current > 30) {
+        console.warn(`[Animation] Too many active animations (${activeAnimationsCount.current}), skipping new ones`);
+        return;
+      }
+
       activeAnimationsCount.current++;
       // Запускаем мониторинг при старте анимации если он еще не запущен
       if (!monitoringRAF.current) {
@@ -362,10 +368,6 @@ function App() {
       }
       console.log(`[Animation] Starting animation. Active count: ${activeAnimationsCount.current}`);
       
-      if (activeAnimationsCount.current > 10) {
-        console.warn(`[Animation] High animation count: ${activeAnimationsCount.current}`);
-      }
-
       // Проверяем, не было ли оттряхивания после броска
       const targetUser = gameState.users.find((u) => u.id === targetId);
       if (targetUser?.lastShakeTime && targetUser.lastShakeTime > Date.now()) {
@@ -378,6 +380,19 @@ function App() {
         activeAnimationsCount.current--; // Уменьшаем счетчик если нет цели
         return;
       }
+
+      // Устанавливаем таймаут для принудительной очистки анимации
+      const forceCleanupTimeout = setTimeout(() => {
+        console.log('[Animation] Force cleanup triggered');
+        activeAnimationsCount.current = Math.max(0, activeAnimationsCount.current - 1);
+        if (activeAnimationsCount.current === 0) {
+          if (monitoringRAF.current) {
+            cancelAnimationFrame(monitoringRAF.current);
+            monitoringRAF.current = null;
+          }
+          frameDrops.current = 0;
+        }
+      }, 3000); // 3 секунды максимальное время жизни анимации
 
       const projectile = document.createElement('div');
       projectile.className = 'emoji-projectile';
@@ -415,9 +430,6 @@ function App() {
         const elapsed = currentTime - startTime;
         const progress = Math.min(elapsed / duration, 1);
 
-        // Мониторим время выполнения анимации
-        const frameStartTime = performance.now();
-
         // Функция плавности для более естественного движения
         const easeOutBack = (t: number) => {
           const c1 = 1.70158;
@@ -446,6 +458,9 @@ function App() {
         if (progress < 1) {
           animationFrameId = requestAnimationFrame(animate);
         } else {
+          // Очищаем таймаут принудительной очистки
+          clearTimeout(forceCleanupTimeout);
+          
           // Попадание
           targetElement.classList.add('animate-shake');
           setTimeout(() => targetElement.classList.remove('animate-shake'), 500);
@@ -467,22 +482,32 @@ function App() {
           if (document.body.contains(projectile)) {
             document.body.removeChild(projectile);
           }
-        }
 
-        const frameEndTime = performance.now();
-        const frameDuration = frameEndTime - frameStartTime;
-        if (frameDuration > 16) { // Больше чем 60 FPS
-          console.warn(`[Performance] Heavy animation frame: ${frameDuration.toFixed(2)}ms`);
+          // Уменьшаем счетчик активных анимаций
+          activeAnimationsCount.current = Math.max(0, activeAnimationsCount.current - 1);
+          console.log(`[Animation] Animation completed. Active count: ${activeAnimationsCount.current}`);
+          
+          if (activeAnimationsCount.current === 0) {
+            // Останавливаем мониторинг если нет активных анимаций
+            if (monitoringRAF.current) {
+              cancelAnimationFrame(monitoringRAF.current);
+              monitoringRAF.current = null;
+            }
+            frameDrops.current = 0;
+          }
         }
       };
 
       animationFrameId = requestAnimationFrame(animate);
 
       const cleanup = () => {
-        activeAnimationsCount.current--;
-        console.log(`[Animation] Animation completed. Active count: ${activeAnimationsCount.current}`);
+        // Очищаем таймаут принудительной очистки
+        clearTimeout(forceCleanupTimeout);
+        
+        activeAnimationsCount.current = Math.max(0, activeAnimationsCount.current - 1);
+        console.log(`[Animation] Animation cleanup. Active count: ${activeAnimationsCount.current}`);
+        
         if (activeAnimationsCount.current === 0) {
-          // Останавливаем мониторинг если нет активных анимаций
           if (monitoringRAF.current) {
             cancelAnimationFrame(monitoringRAF.current);
             monitoringRAF.current = null;
@@ -499,6 +524,29 @@ function App() {
     },
     [gameState?.users, monitorFrameRate]
   );
+
+  // Добавляем периодическую проверку и сброс счетчика анимаций
+  useEffect(() => {
+    const checkInterval = setInterval(() => {
+      if (activeAnimationsCount.current > 0) {
+        console.log(`[Animation] Periodic check - active animations: ${activeAnimationsCount.current}`);
+        // Если счетчик слишком большой, сбрасываем его
+        if (activeAnimationsCount.current > 30) {
+          console.warn(`[Animation] Force resetting high animation count: ${activeAnimationsCount.current}`);
+          activeAnimationsCount.current = 0;
+          if (monitoringRAF.current) {
+            cancelAnimationFrame(monitoringRAF.current);
+            monitoringRAF.current = null;
+          }
+          frameDrops.current = 0;
+          // Очищаем все анимации
+          document.querySelectorAll('.emoji-projectile').forEach(el => el.remove());
+        }
+      }
+    }, 5000);
+
+    return () => clearInterval(checkInterval);
+  }, []);
 
   const handleEmojiFall = useCallback(() => {
     const stuckEmojis = document.querySelectorAll('.stuck-emoji');
